@@ -1,4 +1,9 @@
 {
+  "name": "firebase-nest",
+  "version": "0.0.4",
+  "description": "firebase nested subscriptions",
+  "main": "./nestedFirebaseSubscriber.js",
+  "readmeFilename": "./README.md",
   "scripts": {
     "test": "babel-node test/nested.spec.js | tap-spec"
   },

@@ -1,16 +1,21 @@
 
 //list data
-export const FB_INIT_VAL = 'FB_INIT_VAL';
-export const FB_CHILD_ADDED = 'FB_CHILD_ADDED';
-export const FB_CHILD_WILL_REMOVE = 'FB_CHILD_WILL_REMOVE';
-export const FB_CHILD_REMOVED = 'FB_CHILD_REMOVED';
-export const FB_CHILD_WILL_CHANGE = 'FB_CHILD_WILL_CHANGE';
-export const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
+const FB_INIT_VAL = 'FB_INIT_VAL';
+const FB_CHILD_ADDED = 'FB_CHILD_ADDED';
+const FB_CHILD_WILL_REMOVE = 'FB_CHILD_WILL_REMOVE';
+const FB_CHILD_REMOVED = 'FB_CHILD_REMOVED';
+const FB_CHILD_WILL_CHANGE = 'FB_CHILD_WILL_CHANGE';
+const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
 //value data
-export const FB_VALUE = 'FB_VALUE';
+const FB_VALUE = 'FB_VALUE';
 
-export default function createNestedFirebaseSubscriber({onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery,
-    subscribedRegistry}) {
+module.exports = function (config) {
+    const onData = config.onData;
+    const onSubscribed = config.onSubscribed;
+    const onUnsubscribed = config.onUnsubscribed;
+    const resolveFirebaseQuery = config.resolveFirebaseQuery;
+    const subscribedRegistry = config.subscribedRegistry;
+
     if (!onData || !onSubscribed || !onUnsubscribed || !resolveFirebaseQuery || !subscribedRegistry) {
         console.error("createNestedFirebaseSubscriber: missing one of onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery, subscribedRegistry");
         return;
@@ -170,5 +175,5 @@ export default function createNestedFirebaseSubscriber({onData, onSubscribed, on
         }
     }
 
-    return { subscribeSubs };
+    return { subscribeSubs: subscribeSubs };
 };
