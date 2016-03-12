@@ -1,6 +1,6 @@
 import test from 'tape';
 
-import createNestedFirebaseSubscriber from './../nestedFirebaseSubscriber';
+import createNestedFirebaseSubscriber from '../src/index.js';
 import MockFirebase from './MockFirebase';
 
 function userDetailSubCreator(userKey) {
@@ -121,3 +121,17 @@ test('test subscribes to user details in a friends list (with subs[0].asValue ==
     }, 100);
 });
 
+test('childSubs args get passed to child action creators)', (assert) => {
+    const {subscribeSubs} = setupSubscriber();
+
+    function childSubs(childKey, arg1, arg2) {
+        assert.equal(arg1,"arg1Val","arg1 got passed to child sub");
+        assert.equal(arg2,"arg2Val","arg2 got passed to child sub");
+        return userDetailSubCreator(childKey);
+    }
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].forEachChild = {childSubs: childSubs, args: ["arg1Val", "arg2Val"]};
+    subscribeSubs(sub1);
+
+    assert.end();
+});

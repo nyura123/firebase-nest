@@ -1,5 +1,5 @@
 
-import createNestedFirebaseSubscriber from './nestedFirebaseSubscriber';
+import createNestedFirebaseSubscriber from 'firebase-nest';
 
 import Firebase from 'firebase';
 
