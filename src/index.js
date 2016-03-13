@@ -18,6 +18,9 @@ module.exports = function createSubscriber({onData, onSubscribed, onUnsubscribed
 
     function subscribeToChildData(sub, childKey) {
         if (!sub.forEachChild) return;
+        if (!sub.forEachChild.childSubs) {
+            console.error("ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a childKey and other optional args specifified in forEachChild.args")
+        }
         var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[])) || [];
         subscribedRegistry[sub.subKey].childSubKeys[childKey] = (childSubs).map(sub=>sub.subKey);
         subscribeSubs(childSubs);
@@ -73,7 +76,11 @@ module.exports = function createSubscriber({onData, onSubscribed, onUnsubscribed
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
             if (subscribedRegistry[sub.subKey]) {
                 onData(FB_INIT_VAL, snapshot, sub);
-                Object.keys(snapshot.val() || {}).forEach(childKey=>subscribeToChildData(sub, childKey));
+
+                var val = snapshot.val();
+                if (val && (typeof val == 'object')) {
+                    Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
+                }
             }
         });
     }
@@ -102,7 +109,11 @@ module.exports = function createSubscriber({onData, onSubscribed, onUnsubscribed
             //subscribed to firebase to avoid possibly blowing away firebase cache
             var oldChildSubKeys = Object.assign({}, subscribedRegistry[sub.subKey].childSubKeys);
             subscribedRegistry[sub.subKey].childSubKeys = {};
-            Object.keys(snapshot.val()||{}).forEach(childKey=>subscribeToChildData(sub, childKey));
+
+            var val = snapshot.val();
+            if (val && (typeof val == 'object')) {
+                Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
+            }
             Object.keys(oldChildSubKeys || {}).forEach(childKey=>{
                 unsubscribeSubKeys(oldChildSubKeys[childKey]);
             });

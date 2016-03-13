@@ -1,13 +1,14 @@
 {
   "name": "firebase-nest",
-  "version": "0.0.14",
+  "version": "0.0.18",
   "description": "utility to easily join multiple firebase paths and nested data into a single subscription",
   "keywords": [
     "firebase",
     "nested queries",
-    "similar to relay",
+    "relay",
     "redux",
-    "middleware"
+    "middleware",
+    "declarative"
   ],
   "main": "lib/index.js",
   "readmeFilename": "./README.md",
