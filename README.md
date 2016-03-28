@@ -88,6 +88,11 @@ const unsub = subscribeSubs(user1Subs);
 unsub();
 ```
 
+# Mobx example
+See https://github.com/nyura123/firebase-nest/blob/master/examples/MobxComponentExample.js for how to add
+ dynamic firebase subscriptions and data to a React component.
+
+
 # Full Example
 
 ```
