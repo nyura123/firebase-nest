@@ -147,10 +147,16 @@ import React from 'react';
 import Firebase from 'firebase';
 
 var dinosaurs;
+var reactiveComponent;
 
 var {subscribeSubs} = createNestedFirebaseSubscriber({
     onData: function (type, snapshot, sub) {
         dinosaurs = snapshot.val();
+
+        //Example only - use something like redux dispatch or set mobx observable data to trigger component rendering.
+        if (reactiveComponent) {
+            reactiveComponent.setState();
+        }
     },
     onSubscribed: function (sub) {},
     onUnsubscribed: function (subKey) {},
@@ -178,6 +184,11 @@ export var DinosaurList = myAutoSubscriber(class extends React.Component {
             params: {name: 'dinosaurs'},
             path: fbRoot+"/dinosaurs"
         };
+    }
+    componentDidMount() {
+        //this is just an example of making a component reactive to data.
+        //In practice, we can connect components to data via something like redux connect or mobx observer.
+        reactiveComponent = this;
     }
     render() {
         return (
