@@ -9,10 +9,10 @@ export const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
 //value data
 export const FB_VALUE = 'FB_VALUE';
 
-export default function createSubscriber({onData, onSubscribed, onUnsubscribed,
-    resolveFirebaseQuery,subscribedRegistry}) {
-    if (!onData || !onSubscribed || !onUnsubscribed || !resolveFirebaseQuery || !subscribedRegistry) {
-        console.error("createNestedFirebaseSubscriber: missing one of onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery, subscribedRegistry");
+export default function createSubscriber({onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery}) {
+    var subscribedRegistry = {};
+    if (!onData || !onSubscribed || !onUnsubscribed || !resolveFirebaseQuery) {
+        console.error("createNestedFirebaseSubscriber: missing one of onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery");
         return;
     }
 
@@ -182,7 +182,7 @@ export default function createSubscriber({onData, onSubscribed, onUnsubscribed,
         }
     }
 
-    return { subscribeSubs };
+    return { subscribeSubs, subscribedRegistry };
 };
 
 

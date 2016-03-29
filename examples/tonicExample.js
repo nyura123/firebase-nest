@@ -7,8 +7,7 @@ const {subscribeSubs} = nestedSubscriber({
     },
     onSubscribed: function(){},
     onUnsubscribed: function(){},
-    resolveFirebaseQuery: function(sub){return new Firebase(sub.path);},
-    subscribedRegistry: {}
+    resolveFirebaseQuery: function(sub){return new Firebase(sub.path);}
 });
 
 function dinosaurScoreAndDetailSubCreator(dinosaurKey) {

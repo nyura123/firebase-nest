@@ -70,7 +70,6 @@ function subscribeToUserFeedAndFriends(userKey, now) {
 
 //Firebase data callbacks will be dispatched as FIREBASE_DATA actions
 function setupSubscriber(dispatch) {
-    var subscribeRegistry = {};
     return createNestedFirebaseSubscriber({
         onData: function (type, snapshot, sub) {
             //This can be consumed by reducers to build up data
@@ -86,8 +85,7 @@ function setupSubscriber(dispatch) {
             //Can add arbitrary params to sub in the sub specs above, and then use them to do additional
             //firebase filtering/sorting, e.g. new Firebase(sub.path).orderByChild(sub.orderByChild).startAt(sub.startAt)
             return new Firebase(sub.path);
-        },
-        subscribedRegistry: subscribeRegistry
+        }
     });
 }
 

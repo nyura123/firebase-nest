@@ -31,8 +31,7 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
     },
     resolveFirebaseQuery: function (sub) {
         return new Firebase(sub.path);
-    },
-    subscribedRegistry: {}
+    }
 });
 
 function myAutoSubscriber(Component) {

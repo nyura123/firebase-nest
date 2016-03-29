@@ -59,8 +59,7 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
     resolveFirebaseQuery: function(sub) {
         //Translate a sub to a firebase ref/query, for example
         return new Firebase(sub.path);
-    },
-    subscribedRegistry: {} //will be populated by the subscriber
+    }
 });
 ```
 
@@ -105,8 +104,7 @@ const {subscribeSubs} = nestedSubscriber({
     },
     onSubscribed: function(){},
     onUnsubscribed: function(){},
-    resolveFirebaseQuery: function(sub){return new Firebase(sub.path);},
-    subscribedRegistry: {}
+    resolveFirebaseQuery: function(sub){return new Firebase(sub.path);}
 });
 
 function dinosaurScoreAndDetailSubCreator(dinosaurKey) {
@@ -280,8 +278,7 @@ function setupSubscriber(dispatch) {
             //Can add arbitrary params to sub in the sub specs above, and then use them to do additional
             //firebase filtering/sorting, e.g. new Firebase(sub.path).orderByChild(sub.orderByChild).startAt(sub.startAt)
             return new Firebase(sub.path);
-        },
-        subscribedRegistry: subscribeRegistry
+        }
     });
 }
 

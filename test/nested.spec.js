@@ -42,8 +42,7 @@ var mockFirebaseData = {
 function setupSubscriber() {
     var receivedData = {};
 
-    var subscribeRegistry = {};
-    var {subscribeSubs} = createNestedFirebaseSubscriber({
+    var {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
         onData: function (type, snapshot, sub) {
             if (!receivedData[sub.params.name]) receivedData[sub.params.name] = {};
             receivedData[sub.params.name][sub.params.key] = snapshot.val();
@@ -52,34 +51,33 @@ function setupSubscriber() {
         onUnsubscribed: function (subKey) {},
         resolveFirebaseQuery: function (sub) {
             return new MockFirebase(sub.params.key, mockFirebaseData[sub.params.name][sub.params.key]);
-        },
-        subscribedRegistry: subscribeRegistry
+        }
     });
 
 
-    return {subscribeSubs, subscribeRegistry, receivedData};
+    return {subscribeSubs, subscribedRegistry, receivedData};
 }
 
 test('test refCount after subscribing/unsubscribing with same or different subKeys', (assert) => {
-    const {subscribeSubs, subscribeRegistry} = setupSubscriber();
+    const {subscribeSubs, subscribedRegistry} = setupSubscriber();
 
     var sub1 = friendListWithDetailSubCreator("user1");
     var unsub1 = subscribeSubs(sub1);
-    assert.equal(subscribeRegistry[sub1[0].subKey].refCount, 1, "ref count for user1 friends is 1 after first subscription");
+    assert.equal(subscribedRegistry[sub1[0].subKey].refCount, 1, "ref count for user1 friends is 1 after first subscription");
 
     var sub2 = friendListWithDetailSubCreator("user1");
     var unsub2 = subscribeSubs(sub2);
-    assert.equal(subscribeRegistry[sub2[0].subKey].refCount, 2, "ref count for user1 friends is 2 after second subscription");
+    assert.equal(subscribedRegistry[sub2[0].subKey].refCount, 2, "ref count for user1 friends is 2 after second subscription");
 
     var sub3 = friendListWithDetailSubCreator("user2");
     var unsub3 = subscribeSubs(sub3);
-    assert.equal(subscribeRegistry[sub3[0].subKey].refCount, 1, "ref count for user2 friends is 1 after first subscription");
+    assert.equal(subscribedRegistry[sub3[0].subKey].refCount, 1, "ref count for user2 friends is 1 after first subscription");
 
     unsub2();
-    assert.equal(subscribeRegistry[sub1[0].subKey].refCount, 1, "ref count for user1 friends is 1 after 1 unsubscribe");
+    assert.equal(subscribedRegistry[sub1[0].subKey].refCount, 1, "ref count for user1 friends is 1 after 1 unsubscribe");
 
     unsub1();
-    assert.equal((subscribeRegistry[sub1[0].subKey]||{}).refCount, undefined, "ref count for user1 friends is undefined after 1 unsubscribe");
+    assert.equal((subscribedRegistry[sub1[0].subKey]||{}).refCount, undefined, "ref count for user1 friends is undefined after 1 unsubscribe");
 
     assert.end();
 });
