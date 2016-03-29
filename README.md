@@ -139,6 +139,60 @@ const unsub = subscribeSubs(allDinosaursSubCreator());
 //Eventually unsub() must be called
 ```
 
+# autoSubscriber can be used to automatically subscribe React components.
+A component has to implement a static getSubs(props, state) that returns an array of subs.
+
+```
+import createNestedFirebaseSubscriber, { autoSubscriber } from 'firebase-nest';
+
+import React from 'react';
+import Firebase from 'firebase';
+
+var dinosaurs;
+
+var {subscribeSubs} = createNestedFirebaseSubscriber({
+    onData: function (type, snapshot, sub) {
+        dinosaurs = snapshot.val();
+    },
+    onSubscribed: function (sub) {},
+    onUnsubscribed: function (subKey) {},
+    resolveFirebaseQuery: function (sub) {
+        return new Firebase(sub.path);
+    },
+    subscribedRegistry: {}
+});
+
+function myAutoSubscriber(Component) {
+    return autoSubscriber(subscribeSubs, Component);
+}
+
+//Example usage
+var fbRoot = "https://dinosaur-facts.firebaseio.com";
+
+export var DinosaurList = myAutoSubscriber(class extends React.Component {
+    static getSubs(props, state) {
+        //In practice, you would use helper functions instead of hardcoding the sub spec format here
+        return {
+            subKey: 'dinosaurs',
+            asValue: true,
+
+            //custom fields used by
+            params: {name: 'dinosaurs'},
+            path: fbRoot+"/dinosaurs"
+        };
+    }
+    render() {
+        return (
+            <div>
+                {Object.keys(dinosaurs || {}).map(dinosaurKey=>{
+                    return <div key={dinosaurKey}>{dinosaurKey}</div>
+                })}
+            </div>
+        );
+    }
+});
+```
+
 # asReduxMiddleware.js 
 ```
 import createNestedFirebaseSubscriber from 'firebase-nest';
