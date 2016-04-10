@@ -10,39 +10,52 @@ Normally, you have to do a lot of dynamic subscription management, remembering t
 from multiple firebase refs as your app state changes, and also as the master data (e.g. friend lists) changes.
 
 # Features
-1. Declarative subscriptions:
-This lib allows an app to specify a logical data source as an array of declarative subscription specifications ("subs").
+1. Declarative subscriptions
 
-2. Dynamic nested subscriptions:
-A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data
+   This lib allows an app to specify a logical data source as an array of declarative subscription specifications ("subs").
+
+1. Dynamic nested subscriptions
+
+ A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data
 for each child.
 
-3. RefCounted firebase refs
+1. RefCounted firebase refs
 
-Support registering multiple subscriptions to the same source (identified by `subKey`). Underlying firebase on/off is only called once on the first subscribe/last unsubscribe.
+   Support registering multiple subscriptions to the same source (identified by `subKey`). Underlying firebase on/off is only called once on the first subscribe/last unsubscribe.
 
-4. Composition: the subs can be easily composed and reused, as in the examples below.
+1. Composition
 
-5. Firebase query API support.
+   the subs can be easily composed and reused, as in the examples below.
 
-A sub is mapped to a Firebase ref/query (through `resolveFirebaseQuery` callback), so `orderByChild`, `startAt`, `equalTo` etc. and all other firebase queries are supported.
+1. Firebase query API support.
 
-6. Value or List `onData` callbacks.
-Subs with `asValue`=true result in onData('FB_VALUE', snapshot, sub) callbacks.
+   A sub is mapped to a Firebase ref/query (through `resolveFirebaseQuery` callback), so `orderByChild`, `startAt`, `equalTo` etc. and all other firebase queries are supported.
+
+1. Value or List `onData` callbacks.
+
+Subs with `asValue`=true result in FB_VALUE callbacks:
+```
+onData('FB_VALUE', snapshot, sub)
+ ```
+
 Subs with `asList`=true result in
+
   ```
   onData('FB_INIT_VAL', snapshot, sub)
-  ``` //once
   ```
-  onData('FB_CHILD_ADDED', snapshot, sub)
-  ``` //and FB_CHILD_REMOVED/CHANGED, as well as FB_CHILD_WILL_REMOVE/WILL_CHANGE
+
+  then
+  ```
+  onData('FB_CHILD_ADDED', snapshot, sub) //and FB_CHILD_REMOVED/CHANGED, as well as FB_CHILD_WILL_REMOVE/WILL_CHANGE
+  ```
 
 # Usage
 
 1. `npm install firebase-nest --save`
 
-2.  Initialize the subscriber - generally should be a global/singleton
-```
+1.  Initialize the subscriber - generally should be a global/singleton
+
+   ```
 import createNestedFirebaseSubscriber from 'firebase-nest';
 
 var {subscribeSubs} = createNestedFirebaseSubscriber({
@@ -70,7 +83,8 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
 ```
 
 3. Create your subscription specifications, for example
-```
+
+ ```
 var user1Subs =
 [
         {
@@ -84,12 +98,16 @@ var user1Subs =
     ];
 ```
 Each sub needs to have a logical key ("subKey"), for example 'recent_feed_user1'. This is the key used for ref counting.
+
 4. Start listening to data
-```
+
+ ```
 const unsub = subscribeSubs(user1Subs);
 ```
+
 5. Eventually unsub must be called to unsubscribe. 
-```
+
+ ```
 unsub();
 ```
 
@@ -168,8 +186,7 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
     onUnsubscribed: function (subKey) {},
     resolveFirebaseQuery: function (sub) {
         return new Firebase(sub.path);
-    },
-    subscribedRegistry: {}
+    }
 });
 
 function myAutoSubscriber(Component) {
