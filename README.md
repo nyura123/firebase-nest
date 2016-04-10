@@ -18,18 +18,24 @@ A sub corresponds to a firebase ref/query, and can have a `forEachChild` that sp
 for each child.
 
 3. RefCounted firebase refs
+
 Support registering multiple subscriptions to the same source (identified by `subKey`). Underlying firebase on/off is only called once on the first subscribe/last unsubscribe.
 
 4. Composition: the subs can be easily composed and reused, as in the examples below.
 
 5. Firebase query API support.
+
 A sub is mapped to a Firebase ref/query (through `resolveFirebaseQuery` callback), so `orderByChild`, `startAt`, `equalTo` etc. and all other firebase queries are supported.
 
 6. Value or List `onData` callbacks.
 Subs with `asValue`=true result in onData('FB_VALUE', snapshot, sub) callbacks.
 Subs with `asList`=true result in
-  onData('FB_INIT_VAL', snapshot, sub) //once
-  onData('FB_CHILD_ADDED', snapshot, sub) //and FB_CHILD_REMOVED/CHANGED, as well as FB_CHILD_WILL_REMOVE/WILL_CHANGE
+  ```
+  onData('FB_INIT_VAL', snapshot, sub)
+  ``` //once
+  ```
+  onData('FB_CHILD_ADDED', snapshot, sub)
+  ``` //and FB_CHILD_REMOVED/CHANGED, as well as FB_CHILD_WILL_REMOVE/WILL_CHANGE
 
 # Usage
 
@@ -273,7 +279,6 @@ function subscribeToUserFeedAndFriends(userKey, now) {
 
 //Firebase data callbacks will be dispatched as FB_VALUE or FB_INIT_VAL,FB_CHILD_ADDED/REMOVED/CHANGED actions
 function setupSubscriber(dispatch) {
-    var subscribeRegistry = {};
     return createNestedFirebaseSubscriber({
         onData: function (type, snapshot, sub) {
             //This can be consumed by reducers to build up data

@@ -220,6 +220,11 @@ export function autoSubscriber(subscribe, Component) {
             this.updateSubscriptions(props, this.state);
             if (super.componentWillReceiveProps) super.componentWillReceiveProps(props);
         }
+        shouldComponentUpdate(props, state) {
+            //Make sure to update subs even if Component shouldComponentUpdate returns false/componentWillUpdate isn't called
+            this.updateSubscriptions(props, state);
+            if (super.shouldComponentUpdate) return super.shouldComponentUpdate(props, state);
+        }
         componentWillUpdate(props, state) {
             this.updateSubscriptions(props, state);
             if (super.componentWillUpdate) super.componentWillUpdate(props, state);
