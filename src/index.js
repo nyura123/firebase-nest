@@ -9,7 +9,12 @@ export const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
 //value data
 export const FB_VALUE = 'FB_VALUE';
 
-export default function createSubscriber({onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery}) {
+export default function createSubscriber({onData,
+    onSubscribed,
+    onUnsubscribed,
+    resolveFirebaseQuery,
+    onWillSubscribe,
+    onWillUnsubscribe}) {
     var subscribedRegistry = {};
     if (!onData || !onSubscribed || !onUnsubscribed || !resolveFirebaseQuery) {
         console.error("createNestedFirebaseSubscriber: missing one of onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery");
@@ -121,6 +126,7 @@ export default function createSubscriber({onData, onSubscribed, onUnsubscribed, 
     }
 
     function unsubscribeSubKey(subKey) {
+        if (onWillUnsubscribe) onWillUnsubscribe(subKey);
         var info = subscribedRegistry[subKey];
         if (!info) {
             console.error("no subscriber found for subKey=" + subKey);
@@ -145,6 +151,7 @@ export default function createSubscriber({onData, onSubscribed, onUnsubscribed, 
     }
 
     function subscribeSub(sub) {
+        if (onWillSubscribe) onWillSubscribe(sub);
         if (!sub.subKey) {
             console.error("subscribeSub needs an object with a string subKey field");
             console.error(sub);
@@ -197,10 +204,9 @@ export function autoSubscriber(subscribe, Component) {
             }
             return subs;
         }
-        constructor(props) {
-            super(props);
+        componentDidMount() {
             //TODO error checking to make sure Component.getSubs exists
-            this.subs = this.getSubs(props, this.state);
+            this.subs = this.getSubs(this.props, this.state);
             this.unsub = subscribe(this.subs);
         }
         getSubKeys(subs) {
@@ -224,10 +230,6 @@ export function autoSubscriber(subscribe, Component) {
             //Make sure to update subs even if Component shouldComponentUpdate returns false/componentWillUpdate isn't called
             this.updateSubscriptions(props, state);
             if (super.shouldComponentUpdate) return super.shouldComponentUpdate(props, state);
-        }
-        componentWillUpdate(props, state) {
-            this.updateSubscriptions(props, state);
-            if (super.componentWillUpdate) super.componentWillUpdate(props, state);
         }
         componentWillUnmount() {
             if (this.unsub) {

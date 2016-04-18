@@ -4,3 +4,4 @@ src/
 test/
 examples/
 examples2/
+.babelrc
