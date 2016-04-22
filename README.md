@@ -162,7 +162,9 @@ const unsub = subscribeSubs(allDinosaursSubCreator());
 ```
 
 # autoSubscriber can be used to automatically subscribe React components.
-A component has to implement a static getSubs(props, state) that returns an array of subs.
+A component has to implement 2 methods:
+getSubs(props, state) that returns a sub or an array of subs
+subscribeSubs(subs, props, state) that actually performs the subscription - normally just calls nestedSubscriber's subscribeSubs
 
 ```
 import createNestedFirebaseSubscriber, { autoSubscriber } from 'firebase-nest';
@@ -189,14 +191,12 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
     }
 });
 
-function myAutoSubscriber(Component) {
-    return autoSubscriber(subscribeSubs, Component);
-}
+const globalSubscribeSubs = subscribeSubs;
 
 //Example usage
 var fbRoot = "https://dinosaur-facts.firebaseio.com";
 
-export var DinosaurList = myAutoSubscriber(class extends React.Component {
+export var DinosaurList = autoSubscriber(class extends React.Component {
     static getSubs(props, state) {
         //In practice, you would use helper functions instead of hardcoding the sub spec format here
         return {
@@ -207,6 +207,9 @@ export var DinosaurList = myAutoSubscriber(class extends React.Component {
             params: {name: 'dinosaurs'},
             path: fbRoot+"/dinosaurs"
         };
+    }
+    static subscribeSubs(subs, props, state) {
+        return globalSubscribeSubs(subs);
     }
     componentDidMount() {
         //this is just an example of making a component reactive to data.

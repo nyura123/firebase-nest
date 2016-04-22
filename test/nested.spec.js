@@ -119,7 +119,7 @@ test('test subscribes to user details in a friends list (with subs[0].asValue ==
     }, 100);
 });
 
-test('childSubs args get passed to child action creators)', (assert) => {
+test('childSubs args get passed to child action creators', (assert) => {
     const {subscribeSubs} = setupSubscriber();
 
     function childSubs(childKey, arg1, arg2) {

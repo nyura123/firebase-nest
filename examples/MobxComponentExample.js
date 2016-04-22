@@ -34,13 +34,11 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
     }
 });
 
-function myAutoSubscriber(Component) {
-    return autoSubscriber(subscribeSubs, Component);
-}
+const globalSubscribeSubs = subscribeSubs;
 
 //Example usage
 var fbRoot = "https://dinosaur-facts.firebaseio.com";
-export var Dinosaur = myAutoSubscriber(observer(class extends React.Component {
+export var Dinosaur = autoSubscriber(observer(class extends React.Component {
     static getSubs(props, state) {
         //In practice, you would use helper functions instead of hardcoding the sub spec format here
         return [{
@@ -60,6 +58,10 @@ export var Dinosaur = myAutoSubscriber(observer(class extends React.Component {
                 path: fbRoot+"/scores/" + props.dinosaurKey
             }
         ];
+    }
+
+    static subscribeSubs(subs, props, state) {
+        return globalSubscribeSubs(subs);
     }
 
     render() {

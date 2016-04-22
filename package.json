@@ -1,6 +1,6 @@
 {
   "name": "firebase-nest",
-  "version": "0.0.25",
+  "version": "0.0.27",
   "description": "utility to easily join multiple firebase paths and nested data into a single subscription",
   "keywords": [
     "firebase",
@@ -17,7 +17,7 @@
     "url": "https://github.com/nyura123/firebase-nest/issues"
   },
   "scripts": {
-    "test": "babel-node test/nested.spec.js | tap-spec",
+    "test": "babel-node test/index.spec.js | tap-spec",
     "compile": "babel --plugins transform-object-assign --optional runtime -d lib/ src/",
     "prepublish": "npm run compile"
   },

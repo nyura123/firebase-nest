@@ -9,6 +9,9 @@ export const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
 //value data
 export const FB_VALUE = 'FB_VALUE';
 
+import importedAutoSubscriber from './autoSubscriber';
+export const autoSubscriber = importedAutoSubscriber;
+
 export default function createSubscriber({onData,
     onSubscribed,
     onUnsubscribed,
@@ -192,51 +195,3 @@ export default function createSubscriber({onData,
     return { subscribeSubs, subscribedRegistry };
 };
 
-
-//Subscriber for React components.
-//Component must specify static getSubs(props, state)
-export function autoSubscriber(subscribe, Component) {
-    return class extends Component {
-        getSubs(props, state) {
-            var subs = Component.getSubs(props, state);
-            if (subs.constructor !== Array) {
-                subs = [subs];
-            }
-            return subs;
-        }
-        componentDidMount() {
-            //TODO error checking to make sure Component.getSubs exists
-            this.subs = this.getSubs(this.props, this.state);
-            this.unsub = subscribe(this.subs);
-        }
-        getSubKeys(subs) {
-            return Object.keys(subs||{}).map(k=>subs[k].subKey).sort().join(",");
-        }
-        updateSubscriptions(props, state) {
-            var subs = this.getSubs(props, state);
-            if (this.getSubKeys(subs) !== this.getSubKeys(this.subs)) {
-                //Only unsubscribe/subscribe if subKeys have changed
-                this.subs = subs;
-                var unsub = this.unsub;
-                this.unsub = subscribe(subs);
-                if (unsub) unsub();
-            }
-        }
-        componentWillReceiveProps(props) {
-            this.updateSubscriptions(props, this.state);
-            if (super.componentWillReceiveProps) super.componentWillReceiveProps(props);
-        }
-        shouldComponentUpdate(props, state) {
-            //Make sure to update subs even if Component shouldComponentUpdate returns false/componentWillUpdate isn't called
-            this.updateSubscriptions(props, state);
-            if (super.shouldComponentUpdate) return super.shouldComponentUpdate(props, state);
-        }
-        componentWillUnmount() {
-            if (this.unsub) {
-                this.unsub();
-            }
-
-            if (super.componentWillUnmount) super.componentWillUnmount();
-        }
-    }
-}
