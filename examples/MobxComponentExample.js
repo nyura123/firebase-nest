@@ -76,7 +76,7 @@ export var Dinosaur = autoSubscriber(observer(class extends React.Component {
     }
 }));
 
-export var DinosaurList = myAutoSubscriber(observer(class extends React.Component {
+export var DinosaurList = autoSubscriber(observer(class extends React.Component {
     static getSubs(props, state) {
         //In practice, you would use helper functions instead of hardcoding the sub spec format here
         return {
@@ -88,6 +88,11 @@ export var DinosaurList = myAutoSubscriber(observer(class extends React.Componen
             path: fbRoot+"/dinosaurs"
         };
     }
+    
+    static subscribeSubs(subs, props, state) {
+        return globalSubscribeSubs(subs);
+    }
+    
     render() {
         return (
             <div>
