@@ -19,8 +19,8 @@ export default function createSubscriber({onData,
     onWillSubscribe,
     onWillUnsubscribe}) {
     var subscribedRegistry = {};
-    if (!onData || !onSubscribed || !onUnsubscribed || !resolveFirebaseQuery) {
-        console.error("createNestedFirebaseSubscriber: missing one of onData, onSubscribed, onUnsubscribed, resolveFirebaseQuery");
+    if (!onData || !resolveFirebaseQuery) {
+        console.error("createNestedFirebaseSubscriber: missing onData or resolveFirebaseQuery callback");
         return;
     }
 
@@ -29,9 +29,9 @@ export default function createSubscriber({onData,
         if (!sub.forEachChild.childSubs) {
             console.error("ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a childKey and other optional args specifified in forEachChild.args")
         }
+        const subscribe = (sub.forEachChild.subscribeSubs ? sub.forEachChild.subscribeSubs : subscribeSubs);
         var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[])) || [];
-        subscribedRegistry[sub.subKey].childSubKeys[childKey] = (childSubs).map(sub=>sub.subKey);
-        subscribeSubs(childSubs);
+        subscribedRegistry[sub.subKey].childUnsubs[childKey] = subscribe(childSubs);
     }
 
     function check(type, sub) {
@@ -52,7 +52,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey] = {
             refCount: 1,
             ref: ref,
-            childSubKeys: {},
+            childUnsubs: {},
             refHandles: {}
         };
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
@@ -70,9 +70,9 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.child_removed = ref.on('child_removed', function(snapshot) {
             if (!gotInitVal) return;
             check('child_removed', sub);
-            var childSubKeys = subscribedRegistry[sub.subKey].childSubKeys[snapshot.key()] || [];
-            delete subscribedRegistry[sub.subKey].childSubKeys[snapshot.key()];
-            unsubscribeSubKeys(childSubKeys);
+            const childUnsub = subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
+            delete subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
+            if (childUnsub) childUnsub();
             onData(FB_CHILD_WILL_REMOVE, snapshot, sub);
             onData(FB_CHILD_REMOVED, snapshot, sub);
         });
@@ -105,7 +105,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey] = {
             refCount: 1,
             ref: ref,
-            childSubKeys: {},
+            childUnsubs: {},
             refHandles: {}
         };
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
@@ -115,15 +115,16 @@ export default function createSubscriber({onData,
 
             //First subscribe to new value's nodes, then unsubscribe old ones - the ones in both old/new will remain
             //subscribed to firebase to avoid possibly blowing away firebase cache
-            var oldChildSubKeys = Object.assign({}, subscribedRegistry[sub.subKey].childSubKeys);
-            subscribedRegistry[sub.subKey].childSubKeys = {};
+            const oldChildUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].childUnsubs);
+            subscribedRegistry[sub.subKey].childUnsubs = {};
 
             var val = snapshot.val();
             if (val && (typeof val == 'object')) {
                 Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
             }
-            Object.keys(oldChildSubKeys || {}).forEach(childKey=>{
-                unsubscribeSubKeys(oldChildSubKeys[childKey]);
+            Object.keys(oldChildUnsubs || {}).forEach(childKey=>{
+                const childUnsub = oldChildUnsubs[childKey];
+                childUnsub();
             });
         });
     }
@@ -139,14 +140,14 @@ export default function createSubscriber({onData,
                 Object.keys(info.refHandles).forEach(eventType=> {
                     info.ref.off(eventType, info.refHandles[eventType]);
                 });
-                Object.keys(info.childSubKeys || {}).forEach(childKey=> {
-                    var subKeys = info.childSubKeys[childKey];
-                    unsubscribeSubKeys(subKeys);
+                Object.keys(info.childUnsubs || {}).forEach(childKey=> {
+                    const childUnsub = info.childUnsubs[childKey];
+                    childUnsub();
                 });
                 delete subscribedRegistry[subKey];
             }
         }
-        onUnsubscribed(subKey);
+        if (onUnsubscribed) onUnsubscribed(subKey);
     }
 
     function unsubscribeSubKeys(subKeys) {
@@ -154,7 +155,6 @@ export default function createSubscriber({onData,
     }
 
     function subscribeSub(sub) {
-        if (onWillSubscribe) onWillSubscribe(sub);
         if (!sub.subKey) {
             console.error("subscribeSub needs an object with a string subKey field");
             console.error(sub);
@@ -165,6 +165,9 @@ export default function createSubscriber({onData,
             console.error(sub);
             return;
         }
+
+        if (onWillSubscribe) onWillSubscribe(sub);
+
         if (sub.asList) {
             executeListSubscribeAction(sub);
         } else if (sub.asValue) {
@@ -172,7 +175,8 @@ export default function createSubscriber({onData,
         } else {
             console.error("??");
         }
-        onSubscribed(sub);
+
+        if (onSubscribed) onSubscribed(sub);
 
         return function unsubscribe() {
             unsubscribeSubKey(sub.subKey);

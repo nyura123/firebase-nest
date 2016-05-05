@@ -2,7 +2,7 @@
 utility to easily join multiple firebase paths and nested data into a single subscription.
 
 # Motivation
-Apps often have the need to subscribe and unsubscribe from multiple firbease paths, as well as 
+Apps often have the need to subscribe and unsubscribe from multiple firebase paths, as well as 
 dynamically subscribe to additional paths as some data changes. For example, you might want
 to subscribe to several sources on user login (get user profile, get user friends, get user recent feed);
 and you might want to pull each friend's profile.
@@ -175,7 +175,7 @@ import Firebase from 'firebase';
 var dinosaurs;
 var reactiveComponent;
 
-var {subscribeSubs} = createNestedFirebaseSubscriber({
+var {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
     onData: function (type, snapshot, sub) {
         dinosaurs = snapshot.val();
 
@@ -184,6 +184,8 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
             reactiveComponent.setState();
         }
     },
+    onWillSubscribe: function (sub) {},
+    onWillUnsubscribe: function (subKey) {},
     onSubscribed: function (sub) {},
     onUnsubscribed: function (subKey) {},
     resolveFirebaseQuery: function (sub) {

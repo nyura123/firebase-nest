@@ -1,11 +1,12 @@
 {
   "name": "firebase-nest",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "description": "utility to easily join multiple firebase paths and nested data into a single subscription",
   "keywords": [
     "firebase",
     "nested queries",
-    "relay", "mobx",
+    "relay",
+    "mobx",
     "redux",
     "middleware",
     "declarative"
