@@ -37,7 +37,9 @@ export default function createSubscriber({onData,
     function check(type, sub) {
         if (!subscribedRegistry[sub.subKey]) {
             console.error("Error on for "+sub.subKey+", got "+type+" firebase callback but not subscribed!");
+            return false;
         }
+        return true;
     }
 
     function executeListSubscribeAction(sub) {
@@ -57,19 +59,19 @@ export default function createSubscriber({onData,
         };
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
             if (!gotInitVal) return;
-            check('child_added', sub);
+            if (!check('child_added', sub)) return;
             onData(FB_CHILD_ADDED, snapshot, sub);
             subscribeToChildData(sub, snapshot.key());
         });
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
             if (!gotInitVal) return;
-            check('child_changed', sub);
+            if (!check('child_changed', sub)) return;
             onData(FB_CHILD_WILL_CHANGE, snapshot, sub);
             onData(FB_CHILD_CHANGED, snapshot, sub);
         });
         subscribedRegistry[sub.subKey].refHandles.child_removed = ref.on('child_removed', function(snapshot) {
             if (!gotInitVal) return;
-            check('child_removed', sub);
+            if (!check('child_removed', sub)) return;
             const childUnsub = subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
             delete subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
             if (childUnsub) childUnsub();
@@ -78,7 +80,8 @@ export default function createSubscriber({onData,
         });
         ref.once('value', function(snapshot) {
             if (gotInitVal) {
-                console.error("Got 'once' callback for "+snapshot.key()+" more than once")
+                console.error("Got 'once' callback for "+snapshot.key()+" more than once");
+                return;
             }
             gotInitVal = true;
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
@@ -111,7 +114,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
             onData(FB_VALUE, snapshot, sub);
 
-            check('value', sub);
+            if (!check('value', sub)) return;
 
             //First subscribe to new value's nodes, then unsubscribe old ones - the ones in both old/new will remain
             //subscribed to firebase to avoid possibly blowing away firebase cache
@@ -130,11 +133,11 @@ export default function createSubscriber({onData,
     }
 
     function unsubscribeSubKey(subKey) {
-        if (onWillUnsubscribe) onWillUnsubscribe(subKey);
         var info = subscribedRegistry[subKey];
         if (!info) {
             console.error("no subscriber found for subKey=" + subKey);
         } else {
+            if (onWillUnsubscribe) onWillUnsubscribe(subKey);
             info.refCount--;
             if (info.refCount == 0) {
                 Object.keys(info.refHandles).forEach(eventType=> {
@@ -148,10 +151,6 @@ export default function createSubscriber({onData,
             }
         }
         if (onUnsubscribed) onUnsubscribed(subKey);
-    }
-
-    function unsubscribeSubKeys(subKeys) {
-        subKeys.forEach(subKey=>unsubscribeSubKey(subKey));
     }
 
     function subscribeSub(sub) {
