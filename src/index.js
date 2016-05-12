@@ -60,8 +60,8 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_added', sub)) return;
-            onData(FB_CHILD_ADDED, snapshot, sub);
             subscribeToChildData(sub, snapshot.key());
+            onData(FB_CHILD_ADDED, snapshot, sub);
         });
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
             if (!gotInitVal) return;
@@ -86,12 +86,12 @@ export default function createSubscriber({onData,
             gotInitVal = true;
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
             if (subscribedRegistry[sub.subKey]) {
-                onData(FB_INIT_VAL, snapshot, sub);
-
                 var val = snapshot.val();
                 if (val && (typeof val == 'object')) {
                     Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
                 }
+
+                onData(FB_INIT_VAL, snapshot, sub);
             }
         });
     }
@@ -112,8 +112,6 @@ export default function createSubscriber({onData,
             refHandles: {}
         };
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
-            onData(FB_VALUE, snapshot, sub);
-
             if (!check('value', sub)) return;
 
             //First subscribe to new value's nodes, then unsubscribe old ones - the ones in both old/new will remain
@@ -129,6 +127,8 @@ export default function createSubscriber({onData,
                 const childUnsub = oldChildUnsubs[childKey];
                 childUnsub();
             });
+
+            onData(FB_VALUE, snapshot, sub);
         });
     }
 
