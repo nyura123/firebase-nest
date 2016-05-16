@@ -140,6 +140,7 @@ export default function createSubscriber({onData,
             if (onWillUnsubscribe) onWillUnsubscribe(subKey);
             info.refCount--;
             if (info.refCount == 0) {
+                delete subscribedRegistry[subKey];
                 Object.keys(info.refHandles).forEach(eventType=> {
                     info.ref.off(eventType, info.refHandles[eventType]);
                 });
@@ -147,7 +148,6 @@ export default function createSubscriber({onData,
                     const childUnsub = info.childUnsubs[childKey];
                     childUnsub();
                 });
-                delete subscribedRegistry[subKey];
             }
         }
         if (onUnsubscribed) onUnsubscribed(subKey);
@@ -195,6 +195,11 @@ export default function createSubscriber({onData,
         }
     }
 
-    return { subscribeSubs, subscribedRegistry };
+    function unsubscribeAll() {
+        while (Object.keys(subscribedRegistry || {}).length > 0) {
+            unsubscribeSubKey(Object.keys(subscribedRegistry)[0])
+        }
+    }
+    return { subscribeSubs, subscribedRegistry, unsubscribeAll };
 };
 
