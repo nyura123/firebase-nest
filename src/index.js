@@ -24,13 +24,49 @@ export default function createSubscriber({onData,
         return;
     }
 
-    function subscribeToChildData(sub, childKey) {
+    function subscribeToField(sub, forField, fieldKey, fieldVal) {
+        const subscribe = (forField.subscribeSubs ? forField.subscribeSubs : subscribeSubs);
+        var fieldSubs = forField.fieldSubs(fieldVal, ...(forField.args || [])) || [];
+        subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = subscribe(fieldSubs);
+    }
+
+    function subscribeToFields(sub, val) {
+        const oldFieldUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].fieldUnsubs || {});
+
+        subscribedRegistry[sub.subKey].fieldUnsubs = {};
+
+        //Subscribe based on new fields in val
+        const forFields = sub.forFields || [];
+        if (forFields.constructor !== Array) {
+            console.error("ERROR: forFields must be an array");
+        } else {
+            val = val || {};
+            (forFields || []).forEach(forField => {
+                if (!forField.fieldKey || !forField.fieldSubs) {
+                    console.error("ERROR: each element in forFields must have fieldKey and fieldSubs keys");
+                    return;
+                }
+                const fieldVal = val[forField.fieldKey];
+                if (fieldVal !== undefined) {
+                    subscribeToField(sub, forField, forField.fieldKey, fieldVal);
+                }
+            })
+        }
+
+        //Unsubscribe old fields
+        Object.keys(oldFieldUnsubs || {}).forEach(field => {
+            const unsub = oldFieldUnsubs[field];
+            unsub();
+        });
+    }
+
+    function subscribeToChildData(sub, childKey, childVal) {
         if (!sub.forEachChild) return;
         if (!sub.forEachChild.childSubs) {
             console.error("ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a childKey and other optional args specifified in forEachChild.args")
         }
         const subscribe = (sub.forEachChild.subscribeSubs ? sub.forEachChild.subscribeSubs : subscribeSubs);
-        var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[])) || [];
+        var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[]), childVal) || [];
         subscribedRegistry[sub.subKey].childUnsubs[childKey] = subscribe(childSubs);
     }
 
@@ -55,12 +91,13 @@ export default function createSubscriber({onData,
             refCount: 1,
             ref: ref,
             childUnsubs: {},
+            fieldUnsubs: {},
             refHandles: {}
         };
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_added', sub)) return;
-            subscribeToChildData(sub, snapshot.key());
+            subscribeToChildData(sub, snapshot.key(), snapshot.val());
             onData(FB_CHILD_ADDED, snapshot, sub);
         });
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
@@ -87,8 +124,9 @@ export default function createSubscriber({onData,
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
             if (subscribedRegistry[sub.subKey]) {
                 var val = snapshot.val();
-                if (val && (typeof val == 'object')) {
-                    Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
+                if (val !== null && (typeof val == 'object')) {
+                    Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey]));
+                    subscribeToFields(sub, val);
                 }
 
                 onData(FB_INIT_VAL, snapshot, sub);
@@ -120,8 +158,9 @@ export default function createSubscriber({onData,
             subscribedRegistry[sub.subKey].childUnsubs = {};
 
             var val = snapshot.val();
-            if (val && (typeof val == 'object')) {
-                Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey));
+            if (val !== null && (typeof val == 'object')) {
+                Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey]));
+                subscribeToFields(sub, val);
             }
             Object.keys(oldChildUnsubs || {}).forEach(childKey=>{
                 const childUnsub = oldChildUnsubs[childKey];
@@ -147,6 +186,10 @@ export default function createSubscriber({onData,
                 Object.keys(info.childUnsubs || {}).forEach(childKey=> {
                     const childUnsub = info.childUnsubs[childKey];
                     childUnsub();
+                });
+                Object.keys(info.fieldUnsubs || {}).forEach(fieldKey=> {
+                    const fieldUnsub = info.fieldUnsubs[fieldKey];
+                    fieldUnsub();
                 });
             }
         }

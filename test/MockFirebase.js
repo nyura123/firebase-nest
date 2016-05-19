@@ -1,8 +1,9 @@
-function makeMockSnapshot(key, data) {
+function makeMockSnapshot(key, data, asVal) {
     return {
         key: ()=>key,
         val: ()=>{
             if (data === undefined || data === null) return null;
+            if (asVal) return data;
             if (typeof data != 'object') {
                 return data;
             }
@@ -17,9 +18,9 @@ function makeMockSnapshot(key, data) {
 }
 
 export default class MockFirebase {
-    constructor(key, data) {
+    constructor(key, data, asVal) {
         this.callbacks = {};
-        this.mockSnapshot = makeMockSnapshot(key, data);
+        this.mockSnapshot = makeMockSnapshot(key, data, asVal);
         this.allocRefHandle = 1;
     }
 
