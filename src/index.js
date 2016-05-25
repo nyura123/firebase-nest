@@ -103,6 +103,13 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_changed', sub)) return;
+
+            //Since we pass snapshot.val() to childSubs, it might use it, so we need call it when snapshot.val()
+            //changes
+            var childUnsub = subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
+            subscribeToChildData(sub, snapshot.key(), snapshot.val());
+            if (childUnsub) childUnsub();
+            
             onData(FB_CHILD_WILL_CHANGE, snapshot, sub);
             onData(FB_CHILD_CHANGED, snapshot, sub);
         });
