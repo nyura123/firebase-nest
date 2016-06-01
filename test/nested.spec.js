@@ -274,9 +274,7 @@ test('resolves loaded promise', (assert) => {
     var unsub1 = subscribeSubs(sub1);
 
     const promises = [
-        loadedPromise('friendListWithUserDetail_user1'),
-        loadedPromise('userDetail_user2'),
-        loadedPromise('userDetail_user3')
+        loadedPromise('friendListWithUserDetail_user1')
     ];
 
     Promise.all(promises).then(() => {
@@ -308,9 +306,7 @@ test('promise resolves immediately if data already loaded', (assert) => {
         assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
 
         const promises = [
-            loadedPromise('friendListWithUserDetail_user1'),
-            loadedPromise('userDetail_user2'),
-            loadedPromise('userDetail_user3')
+            loadedPromise('friendListWithUserDetail_user1')
         ];
 
         Promise.all(promises).then(() => {
@@ -346,9 +342,7 @@ test('promise can be recreated after data is resubscribed', (assert) => {
         unsub1 = subscribeSubs(sub1);
 
         const promises = [
-            loadedPromise('friendListWithUserDetail_user1'),
-            loadedPromise('userDetail_user2'),
-            loadedPromise('userDetail_user3')
+            loadedPromise('friendListWithUserDetail_user1')
         ];
 
         Promise.all(promises).then(() => {

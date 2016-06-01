@@ -50,6 +50,11 @@ export default function createSubscriber({onData,
     var subscribedRegistry = {};
     var promisesBySubKey = {};
 
+    const self = {
+        loadedPromise,
+        subscribeSubs
+    };
+
     function loadedPromise(subKey) {
         if (promisesBySubKey[subKey]) {
             return promisesBySubKey[subKey].promise;
@@ -64,13 +69,17 @@ export default function createSubscriber({onData,
         return;
     }
 
-    function subscribeToField(sub, forField, fieldKey, fieldVal) {
-        const subscribe = (forField.subscribeSubs ? forField.subscribeSubs : subscribeSubs);
+    function subscribeToField(sub, forField, fieldKey, fieldVal, promises) {
+        const store = (forField.store ? forField.store : self);
         var fieldSubs = forField.fieldSubs(fieldVal, ...(forField.args || [])) || [];
-        subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = subscribe(fieldSubs);
+        subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = store.subscribeSubs(fieldSubs);
+
+        if (promises) {
+            fieldSubs.forEach(fieldSub => promises.push(store.loadedPromise(fieldSub.subKey)));
+        }
     }
 
-    function subscribeToFields(sub, val) {
+    function subscribeToFields(sub, val, promises) {
         const oldFieldUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].fieldUnsubs || {});
 
         subscribedRegistry[sub.subKey].fieldUnsubs = {};
@@ -88,7 +97,7 @@ export default function createSubscriber({onData,
                 }
                 const fieldVal = val[forField.fieldKey];
                 if (fieldVal !== undefined) {
-                    subscribeToField(sub, forField, forField.fieldKey, fieldVal);
+                    subscribeToField(sub, forField, forField.fieldKey, fieldVal, promises);
                 }
             })
         }
@@ -100,14 +109,18 @@ export default function createSubscriber({onData,
         });
     }
 
-    function subscribeToChildData(sub, childKey, childVal) {
+    function subscribeToChildData(sub, childKey, childVal, promises) {
         if (!sub.forEachChild) return;
         if (!sub.forEachChild.childSubs) {
             console.error("ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a childKey and other optional args specifified in forEachChild.args")
         }
-        const subscribe = (sub.forEachChild.subscribeSubs ? sub.forEachChild.subscribeSubs : subscribeSubs);
+        const store = (sub.forEachChild.store ? sub.forEachChild.store : self);
         var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[]), childVal) || [];
-        subscribedRegistry[sub.subKey].childUnsubs[childKey] = subscribe(childSubs);
+        subscribedRegistry[sub.subKey].childUnsubs[childKey] = store.subscribeSubs(childSubs);
+
+        if (promises) {
+            childSubs.forEach(childSub => promises.push(store.loadedPromise(childSub.subKey)));
+        }
     }
 
     function check(type, sub) {
@@ -169,18 +182,25 @@ export default function createSubscriber({onData,
             }
             gotInitVal = true;
 
-            loadedPromise(sub.subKey);
-            promisesBySubKey[sub.subKey].resolve(true);
-
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
             if (subscribedRegistry[sub.subKey]) {
                 var val = snapshot.val();
+
+                let nestedPromises = [];
+
                 if (val !== null && (typeof val == 'object')) {
-                    Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey]));
-                    subscribeToFields(sub, val);
+                    Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey], nestedPromises));
+                    subscribeToFields(sub, val, nestedPromises);
                 }
 
                 onData(FB_INIT_VAL, snapshot, sub);
+
+                loadedPromise(sub.subKey);
+
+                //Once all initial child & field promises are resolved, we can resolve ourselves
+                Promise.all(nestedPromises).then(() => {
+                    promisesBySubKey[sub.subKey].resolve(true)
+                });
             }
         });
     }
@@ -207,21 +227,17 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
             if (!check('value', sub)) return;
 
-            if (!resolved) {
-                resolved = true;
-                loadedPromise(sub.subKey);
-                promisesBySubKey[sub.subKey].resolve(true);
-            }
-
             //First subscribe to new value's nodes, then unsubscribe old ones - the ones in both old/new will remain
             //subscribed to firebase to avoid possibly blowing away firebase cache
             const oldChildUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].childUnsubs);
             subscribedRegistry[sub.subKey].childUnsubs = {};
 
+            const nestedPromises = (resolved ? null : []);
+
             var val = snapshot.val();
             if (val !== null && (typeof val == 'object')) {
-                Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey]));
-                subscribeToFields(sub, val);
+                Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey], nestedPromises));
+                subscribeToFields(sub, val, nestedPromises);
             }
             Object.keys(oldChildUnsubs || {}).forEach(childKey=>{
                 const childUnsub = oldChildUnsubs[childKey];
@@ -229,6 +245,15 @@ export default function createSubscriber({onData,
             });
 
             onData(FB_VALUE, snapshot, sub);
+
+            if (!resolved) {
+                resolved = true;
+                loadedPromise(sub.subKey);
+
+                Promise.all(nestedPromises).then(() => {
+                    promisesBySubKey[sub.subKey].resolve(true)
+                });
+            }
         });
     }
 
