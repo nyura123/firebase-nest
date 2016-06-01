@@ -9,8 +9,36 @@ export const FB_CHILD_CHANGED = 'FB_CHILD_CHANGED';
 //value data
 export const FB_VALUE = 'FB_VALUE';
 
-import importedAutoSubscriber from './autoSubscriber';
+import importedAutoSubscriber from "./autoSubscriber";
 export const autoSubscriber = importedAutoSubscriber;
+
+
+//credit to js-promise-defer on github
+function defer(deferred) {
+    deferred.promise = new Promise(function (resolve, reject) {
+        deferred.resolve = resolve;
+        deferred.reject = reject;
+    });
+}
+
+
+//Firebase 3.x: snapshot.key() has been replaced with snapshot.key
+let getKey = function(snapshot) {
+    if (typeof snapshot.key == 'function') {
+        console.log("firebase-nest: detected pre-3.x firebase snapshot.key()");
+        getKey = legacyGetKey;
+        return legacyGetKey(snapshot);
+    }
+    console.log("firebase-nest: detected ^3.x firebase snapshot.key");
+    getKey = newGetKey;
+    return newGetKey(snapshot);
+};
+function legacyGetKey(snapshot) {
+    return snapshot.key();
+}
+function newGetKey(snapshot) {
+    return snapshot.key;
+}
 
 export default function createSubscriber({onData,
     onSubscribed,
@@ -18,7 +46,19 @@ export default function createSubscriber({onData,
     resolveFirebaseQuery,
     onWillSubscribe,
     onWillUnsubscribe}) {
+
     var subscribedRegistry = {};
+    var promisesBySubKey = {};
+
+    function loadedPromise(subKey) {
+        if (promisesBySubKey[subKey]) {
+            return promisesBySubKey[subKey].promise;
+        }
+        promisesBySubKey[subKey] = {};
+        defer(promisesBySubKey[subKey]);
+        return promisesBySubKey[subKey].promise;
+    }
+
     if (!onData || !resolveFirebaseQuery) {
         console.error("createNestedFirebaseSubscriber: missing onData or resolveFirebaseQuery callback");
         return;
@@ -97,7 +137,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_added', sub)) return;
-            subscribeToChildData(sub, snapshot.key(), snapshot.val());
+            subscribeToChildData(sub, getKey(snapshot), snapshot.val());
             onData(FB_CHILD_ADDED, snapshot, sub);
         });
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
@@ -106,28 +146,32 @@ export default function createSubscriber({onData,
 
             //Since we pass snapshot.val() to childSubs, it might use it, so we need call it when snapshot.val()
             //changes
-            var childUnsub = subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
-            subscribeToChildData(sub, snapshot.key(), snapshot.val());
+            var childUnsub = subscribedRegistry[sub.subKey].childUnsubs[getKey(snapshot)];
+            subscribeToChildData(sub, getKey(snapshot), snapshot.val());
             if (childUnsub) childUnsub();
-            
+
             onData(FB_CHILD_WILL_CHANGE, snapshot, sub);
             onData(FB_CHILD_CHANGED, snapshot, sub);
         });
         subscribedRegistry[sub.subKey].refHandles.child_removed = ref.on('child_removed', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_removed', sub)) return;
-            const childUnsub = subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
-            delete subscribedRegistry[sub.subKey].childUnsubs[snapshot.key()];
+            const childUnsub = subscribedRegistry[sub.subKey].childUnsubs[getKey(snapshot)];
+            delete subscribedRegistry[sub.subKey].childUnsubs[getKey(snapshot)];
             if (childUnsub) childUnsub();
             onData(FB_CHILD_WILL_REMOVE, snapshot, sub);
             onData(FB_CHILD_REMOVED, snapshot, sub);
         });
         ref.once('value', function(snapshot) {
             if (gotInitVal) {
-                console.error("Got 'once' callback for "+snapshot.key()+" more than once");
+                console.error("Got 'once' callback for "+getKey(snapshot)+" more than once");
                 return;
             }
             gotInitVal = true;
+
+            loadedPromise(sub.subKey);
+            promisesBySubKey[sub.subKey].resolve(true);
+
             //We might've gotten unsubscribed while waiting for initial value, so check if we're still subscribed
             if (subscribedRegistry[sub.subKey]) {
                 var val = snapshot.val();
@@ -154,10 +198,20 @@ export default function createSubscriber({onData,
             refCount: 1,
             ref: ref,
             childUnsubs: {},
+            fieldUnsubs: {},
             refHandles: {}
         };
+
+        let resolved = false;
+
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
             if (!check('value', sub)) return;
+
+            if (!resolved) {
+                resolved = true;
+                loadedPromise(sub.subKey);
+                promisesBySubKey[sub.subKey].resolve(true);
+            }
 
             //First subscribe to new value's nodes, then unsubscribe old ones - the ones in both old/new will remain
             //subscribed to firebase to avoid possibly blowing away firebase cache
@@ -187,6 +241,7 @@ export default function createSubscriber({onData,
             info.refCount--;
             if (info.refCount == 0) {
                 delete subscribedRegistry[subKey];
+                delete promisesBySubKey[subKey];
                 Object.keys(info.refHandles).forEach(eventType=> {
                     info.ref.off(eventType, info.refHandles[eventType]);
                 });
@@ -222,7 +277,7 @@ export default function createSubscriber({onData,
         } else if (sub.asValue) {
             executeValueSubscribeAction(sub);
         } else {
-            console.error("??");
+            console.error("sub must have asList or asValue = true");
         }
 
         if (onSubscribed) onSubscribed(sub);
@@ -250,6 +305,6 @@ export default function createSubscriber({onData,
             unsubscribeSubKey(Object.keys(subscribedRegistry)[0])
         }
     }
-    return { subscribeSubs, subscribedRegistry, unsubscribeAll };
+    return { subscribeSubs, subscribedRegistry, unsubscribeAll, loadedPromise };
 };
 

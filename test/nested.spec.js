@@ -50,7 +50,7 @@ var mockFirebaseData = {
 function setupSubscriber() {
     var receivedData = {};
 
-    var {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
+    var {subscribeSubs, subscribedRegistry, loadedPromise} = createNestedFirebaseSubscriber({
         onData: function (type, snapshot, sub) {
             if (!receivedData[sub.params.name]) receivedData[sub.params.name] = {};
             receivedData[sub.params.name][sub.params.key] = snapshot.val();
@@ -63,7 +63,7 @@ function setupSubscriber() {
     });
 
 
-    return {subscribeSubs, subscribedRegistry, receivedData};
+    return {subscribeSubs, subscribedRegistry, receivedData, loadedPromise};
 }
 
 test('test refCount after subscribing/unsubscribing with same or different subKeys', (assert) => {
@@ -263,4 +263,105 @@ test('fieldSubs get subscribed to with the right args', (assert) => {
         assert.end();
     }, 100);
 
+});
+
+test('resolves loaded promise', (assert) => {
+    const {subscribeSubs, receivedData, subscribedRegistry, loadedPromise} = setupSubscriber();
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].asList = false;
+    sub1[0].asValue = true;
+    var unsub1 = subscribeSubs(sub1);
+
+    const promises = [
+        loadedPromise('friendListWithUserDetail_user1'),
+        loadedPromise('userDetail_user2'),
+        loadedPromise('userDetail_user3')
+    ];
+
+    Promise.all(promises).then(() => {
+        assert.notEqual(receivedData.friends, undefined, "received friends data");
+        assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+        assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+        Object.keys(receivedData.friends["user1"]).forEach(userKey=> {
+            assert.notEqual(receivedData.users[userKey], undefined, "received " + userKey + " user detail");
+        });
+        unsub1();
+
+        assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after unsubscribe");
+        assert.end();
+    });
+});
+
+
+test('promise resolves immediately if data already loaded', (assert) => {
+    const {subscribeSubs, receivedData, subscribedRegistry, loadedPromise} = setupSubscriber();
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].asList = false;
+    sub1[0].asValue = true;
+    var unsub1 = subscribeSubs(sub1);
+
+    setTimeout(()=> {
+        assert.notEqual(receivedData.friends, undefined, "received friends data");
+        assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+        assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+
+        const promises = [
+            loadedPromise('friendListWithUserDetail_user1'),
+            loadedPromise('userDetail_user2'),
+            loadedPromise('userDetail_user3')
+        ];
+
+        Promise.all(promises).then(() => {
+            assert.notEqual(receivedData.friends, undefined, "received friends data");
+            assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+            assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+            Object.keys(receivedData.friends["user1"]).forEach(userKey=> {
+                assert.notEqual(receivedData.users[userKey], undefined, "received " + userKey + " user detail");
+            });
+            unsub1();
+
+            assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after unsubscribe");
+            assert.end();
+        });
+    }, 100);
+});
+
+test('promise can be recreated after data is resubscribed', (assert) => {
+    const {subscribeSubs, receivedData, subscribedRegistry, loadedPromise} = setupSubscriber();
+
+    const sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].asList = false;
+    sub1[0].asValue = true;
+    let unsub1 = subscribeSubs(sub1);
+
+    setTimeout(()=> {
+        assert.notEqual(receivedData.friends, undefined, "received friends data");
+        assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+        assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+
+        //unsubscribe, resubscribe
+        unsub1();
+        unsub1 = subscribeSubs(sub1);
+
+        const promises = [
+            loadedPromise('friendListWithUserDetail_user1'),
+            loadedPromise('userDetail_user2'),
+            loadedPromise('userDetail_user3')
+        ];
+
+        Promise.all(promises).then(() => {
+            assert.notEqual(receivedData.friends, undefined, "received friends data");
+            assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+            assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+            Object.keys(receivedData.friends["user1"]).forEach(userKey=> {
+                assert.notEqual(receivedData.users[userKey], undefined, "received " + userKey + " user detail");
+            });
+            unsub1();
+
+            assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after unsubscribe");
+            assert.end();
+        });
+    }, 100);
 });

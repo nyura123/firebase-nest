@@ -10,13 +10,18 @@ Normally, you have to do a lot of dynamic subscription management, remembering t
 from multiple firebase refs as your app state changes, and also as the master data (e.g. friend lists) changes.
 
 # Features
+
 1. Declarative subscriptions
 
    This lib allows an app to specify a logical data source as an array of declarative subscription specifications ("subs").
 
+1. Promises
+
+   `loadedPromise(subKey).then(...)` allows to know when data is loaded.
+   
 1. Dynamic nested subscriptions
 
- A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data
+   A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data
 for each child.
 
 1. RefCounted firebase refs
