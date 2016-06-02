@@ -13,12 +13,30 @@ function userDetailSubCreator(userKey) {
         }
     ];
 }
+
 function friendListWithDetailSubCreator(userKey) {
     return [
         {
             subKey: 'friendListWithUserDetail_'+userKey,
             asList: true,
             forEachChild: {childSubs: userDetailSubCreator},
+
+            params: {name: 'friends', key: userKey}
+        }
+    ];
+}
+
+function friendListAndDetailSubCreator(userKey) {
+    return friendListWithFriendListCreator(userKey)
+        .concat(userDetailSubCreator(userKey));
+}
+
+function friendListWithFriendListCreator(userKey) {
+    return [
+        {
+            subKey: 'friendListWithFriendList_'+userKey,
+            asList: true,
+            forEachChild: {childSubs: friendListAndDetailSubCreator},
 
             params: {name: 'friends', key: userKey}
         }
@@ -47,7 +65,7 @@ var mockFirebaseData = {
     }
 };
 
-function setupSubscriber() {
+function setupSubscriber(onError) {
     var receivedData = {};
 
     var {subscribeSubs, subscribedRegistry, loadedPromise} = createNestedFirebaseSubscriber({
@@ -59,7 +77,8 @@ function setupSubscriber() {
         onUnsubscribed: function (subKey) {},
         resolveFirebaseQuery: function (sub) {
             return new MockFirebase(sub.params.key, mockFirebaseData[sub.params.name][sub.params.key], sub.asValue);
-        }
+        },
+        onError
     });
 
 
@@ -358,4 +377,46 @@ test('promise can be recreated after data is resubscribed', (assert) => {
             assert.end();
         });
     }, 100);
+});
+
+test('detects circular subscriptions', (assert) => {
+    let error = null;
+    const {subscribeSubs, loadedPromise, subscribedRegistry} = setupSubscriber(
+        function onError(err) {
+            error = err;
+        }
+    );
+
+    //1. get user1's friends user2 & user3;
+    //2. get user2's friend user1; get user1's friends - cycle.
+    //3. get user3's friend user1; get user1's friends - cycle.
+    var sub1 = friendListWithFriendListCreator("user1");
+    const unsub = subscribeSubs(sub1);
+
+    setTimeout(() => {
+        assert.notEqual(error, null, "onError called when cycle detected");
+        unsub();
+        //assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after unsubscribe");
+        assert.end();
+    }, 100);
+});
+
+
+test('reject promise on circular subscriptions/initial values', (assert) => {
+    const {subscribeSubs, loadedPromise, subscribedRegistry} = setupSubscriber();
+
+    //1. get user1's friends user2 & user3;
+    //2. get user2's friend user1; get user1's friends - cycle.
+    //3. get user3's friend user1; get user1's friends - cycle.
+    var sub1 = friendListWithFriendListCreator("user1");
+    const unsub = subscribeSubs(sub1);
+
+    loadedPromise('friendListWithFriendList_user1').then(() => {
+        assert.equal(true, false, 'promise should not be resolved');
+    }, (error) => {
+        const expectedErr = 'Cycle detected: friendListWithFriendList_user2<-friendListWithFriendList_user1<-friendListWithFriendList_user2';
+        assert.equal(error, expectedErr, 'promise gets rejected with the right error');
+        unsub();
+        assert.end()
+    });
 });
