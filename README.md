@@ -1,5 +1,5 @@
 # firebase-nest
-utility to easily join multiple firebase paths and nested data into a single subscription.
+Utility to join multiple firebase paths and nested data into a single subscription.
 
 # Motivation
 Apps often have the need to subscribe and unsubscribe from multiple firebase paths, as well as 
@@ -17,7 +17,7 @@ from multiple firebase refs as your app state changes, and also as the master da
 
 1. Promises
 
-   `loadedPromise(subKey).then(...)` allows to know when data is loaded.
+   `subscribeSubsWithPromise` allows to know when initial data, including async child subscriptions, is loaded.
    
 1. Dynamic nested subscriptions
 

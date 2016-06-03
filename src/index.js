@@ -63,8 +63,7 @@ export default function createSubscriber({onData,
     var promisesBySubKey = {};
 
     const self = {
-        loadedPromise,
-        subscribeSubs
+        subscribeSubsWithPromise
     };
 
     function loadedPromise(subKey) {
@@ -76,6 +75,10 @@ export default function createSubscriber({onData,
         return promisesBySubKey[subKey].promise;
     }
 
+    function subsLoaded(subs) {
+        return Promise.all((subs || []).map(sub => loadedPromise(sub.subKey)));
+    }
+
     if (!onData || !resolveFirebaseQuery) {
         console.error('createNestedFirebaseSubscriber: missing onData or resolveFirebaseQuery callback');
         return;
@@ -84,10 +87,13 @@ export default function createSubscriber({onData,
     function subscribeToField(sub, forField, fieldKey, fieldVal, promises) {
         const store = (forField.store ? forField.store : self);
         var fieldSubs = forField.fieldSubs(fieldVal, ...(forField.args || [])) || [];
-        subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = store.subscribeSubs(fieldSubs, sub.subKey);
+
+        const {unsubscribe, promise} = store.subscribeSubsWithPromise(fieldSubs, sub.subKey);
+
+        subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = unsubscribe;
 
         if (promises) {
-            fieldSubs.forEach(fieldSub => promises.push(store.loadedPromise(fieldSub.subKey)));
+            fieldSubs.forEach(fieldSub => promises.push(promise));
         }
     }
 
@@ -129,10 +135,13 @@ export default function createSubscriber({onData,
         }
         const store = (sub.forEachChild.store ? sub.forEachChild.store : self);
         var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[]), childVal) || [];
-        subscribedRegistry[sub.subKey].childUnsubs[childKey] = store.subscribeSubs(childSubs, sub.subKey);
+
+        const {unsubscribe, promise} = store.subscribeSubsWithPromise(childSubs, sub.subKey);
+
+        subscribedRegistry[sub.subKey].childUnsubs[childKey] = unsubscribe;
 
         if (promises) {
-            childSubs.forEach(childSub => promises.push(store.loadedPromise(childSub.subKey)));
+            childSubs.forEach(childSub => promises.push(promise));
         }
     }
 
@@ -233,7 +242,7 @@ export default function createSubscriber({onData,
                     promisesBySubKey[sub.subKey].reject('Cycle detected: '+trail.join('<-'));
                 } else {
                     Promise.all(nestedPromises).then(() => {
-                        promisesBySubKey[sub.subKey].resolve(true);
+                        promisesBySubKey[sub.subKey].resolve(sub.subKey);
                     }, (error) => {
                         promisesBySubKey[sub.subKey].reject(error);
                     });
@@ -312,7 +321,7 @@ export default function createSubscriber({onData,
                     promisesBySubKey[sub.subKey].reject('Cycle detected: '+trail.join('<-'));
                 } else {
                     Promise.all(nestedPromises).then(() => {
-                        promisesBySubKey[sub.subKey].resolve(true);
+                        promisesBySubKey[sub.subKey].resolve(sub.subKey);
                     }, (error) => {
                         promisesBySubKey[sub.subKey].reject(error);
                     });
@@ -425,11 +434,29 @@ export default function createSubscriber({onData,
         }
     }
 
+    function subscribeSubsWithPromise(subs, parentSubKey=rootSubKey) {
+        if (!subs) return;
+        if (!subs.forEach) {
+            console.error('subscribeSubs expects an array of subs');
+            console.error(subs);
+            return;
+        }
+        var unsubs = subs.map(sub=>subscribeSub(sub, parentSubKey));
+
+        return {
+            unsubscribe: function () {
+                unsubs.forEach(unsub=>unsub());
+            },
+            promise: subsLoaded(subs)
+        };
+    }
+
     function unsubscribeAll() {
         while (Object.keys(subscribedRegistry || {}).length > 0) {
             unsubscribeSubKey(Object.keys(subscribedRegistry)[0])
         }
     }
-    return { subscribeSubs, subscribedRegistry, unsubscribeAll, loadedPromise };
+
+    return { subscribeSubs, subscribedRegistry, unsubscribeAll, subscribeSubsWithPromise, loadedPromise };
 };
 
