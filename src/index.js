@@ -93,7 +93,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = unsubscribe;
 
         if (promises) {
-            fieldSubs.forEach(fieldSub => promises.push(promise));
+            promises.push(promise);
         }
     }
 
@@ -141,7 +141,7 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].childUnsubs[childKey] = unsubscribe;
 
         if (promises) {
-            childSubs.forEach(childSub => promises.push(promise));
+            promises.push(promise);
         }
     }
 
@@ -226,13 +226,16 @@ export default function createSubscriber({onData,
 
                 if (val !== null && (typeof val == 'object')) {
                     Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey], nestedPromises));
-                    subscribeToFields(sub, val, nestedPromises);
                 }
-
 
                 onData(FB_INIT_VAL, snapshot, sub);
 
                 loadedPromise(sub.subKey);
+
+                if (!subscribedRegistry[sub.subKey]) {
+                    promisesBySubKey[sub.subKey].reject("No longer subscribed to "+sub.subKey);
+                    return;
+                }
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
@@ -311,6 +314,11 @@ export default function createSubscriber({onData,
             if (!resolved) {
                 resolved = true;
                 loadedPromise(sub.subKey);
+
+                if (!subscribedRegistry[sub.subKey]) {
+                    promisesBySubKey[sub.subKey].reject("No longer subscribed to "+sub.subKey);
+                    return;
+                }
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
