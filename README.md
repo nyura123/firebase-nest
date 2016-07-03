@@ -39,18 +39,18 @@ for each child.
 1. Value or List `onData` callbacks.
 
 Subs with `asValue`=true result in FB_VALUE callbacks:
-```
+```js
 onData('FB_VALUE', snapshot, sub)
  ```
 
 Subs with `asList`=true result in
 
-  ```
+  ```js
   onData('FB_INIT_VAL', snapshot, sub)
   ```
 
   then
-  ```
+  ```js
   onData('FB_CHILD_ADDED', snapshot, sub) //and FB_CHILD_REMOVED/CHANGED, as well as FB_CHILD_WILL_REMOVE/WILL_CHANGE
   ```
 
@@ -60,10 +60,10 @@ Subs with `asList`=true result in
 
 1.  Initialize the subscriber - generally should be a global/singleton
 
-   ```
+   ```js
 import createNestedFirebaseSubscriber from 'firebase-nest';
 
-var {subscribeSubs} = createNestedFirebaseSubscriber({
+const {subscribeSubs} = createNestedFirebaseSubscriber({
     onData: function(type, snapshot, sub) {
       //type will be FB_VALUE if subscribed as value (sub.asValue==true). 
       // otherwise, if subscribed as list (sub.asList==true), type will be FB_INIT_VAL, then FB_CHILD_ADDED/REMOVED/CHANGED.
@@ -89,8 +89,8 @@ var {subscribeSubs} = createNestedFirebaseSubscriber({
 
 3. Create your subscription specifications, for example
 
- ```
-var user1Subs =
+ ```js
+const user1Subs =
 [
         {
             subKey: 'userDetail_user1', //can use any naming scheme you want to identify your logical sources
@@ -106,13 +106,13 @@ Each sub needs to have a logical key ("subKey"), for example 'recent_feed_user1'
 
 4. Start listening to data
 
- ```
+ ```js
 const unsub = subscribeSubs(user1Subs);
 ```
 
 5. Eventually unsub must be called to unsubscribe. 
 
- ```
+ ```js
 unsub();
 ```
 
@@ -123,9 +123,9 @@ See https://github.com/nyura123/firebase-nest/blob/master/examples/MobxComponent
 
 # Full Example
 
-```
-var nestedSubscriber = require('firebase-nest');
-var Firebase = require('firebase');
+```js
+const nestedSubscriber = require('firebase-nest');
+const Firebase = require('firebase');
 
 const {subscribeSubs} = nestedSubscriber({
     onData: function(type,snapshot,sub){
@@ -171,16 +171,16 @@ A component has to implement 2 methods:
 getSubs(props, state) that returns a sub or an array of subs
 subscribeSubs(subs, props, state) that actually performs the subscription - normally just calls nestedSubscriber's subscribeSubs
 
-```
+```js
 import createNestedFirebaseSubscriber, { autoSubscriber } from 'firebase-nest';
 
 import React from 'react';
 import Firebase from 'firebase';
 
-var dinosaurs;
-var reactiveComponent;
+let dinosaurs;
+let reactiveComponent;
 
-var {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
+const {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
     onData: function (type, snapshot, sub) {
         dinosaurs = snapshot.val();
 
@@ -201,7 +201,7 @@ var {subscribeSubs, subscribedRegistry} = createNestedFirebaseSubscriber({
 const globalSubscribeSubs = subscribeSubs;
 
 //Example usage
-var fbRoot = "https://dinosaur-facts.firebaseio.com";
+const fbRoot = "https://dinosaur-facts.firebaseio.com";
 
 export var DinosaurList = autoSubscriber(class extends React.Component {
     static getSubs(props, state) {
@@ -236,7 +236,8 @@ export var DinosaurList = autoSubscriber(class extends React.Component {
 ```
 
 # asReduxMiddleware.js 
-```
+
+```js
 import createNestedFirebaseSubscriber from 'firebase-nest';
 
 import Firebase from 'firebase';
