@@ -21,7 +21,7 @@ class AutoSubscriber {
     constructor(Component, inst) {
         //Support static and instance methods
         this._getSubs = Component.getSubs || inst.getSubs;
-        this._subscribeSubs = Component.subscribeSubs || inst.subscribeSubs;
+        this._subscribeSubs = Component.subscribeSubs || (inst.subscribeSubs ? inst.subscribeSubs.bind(inst) : undefined);
         this.checkAndStubMethods(Component);
         this.updateSubscriptions(inst.props, inst.state);
     }

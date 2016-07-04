@@ -153,6 +153,20 @@ export default function createSubscriber({onData,
         return true;
     }
 
+    function handleFbError(sub) {
+        return (error) => {
+            if (subscribedRegistry[sub.subKey]) {
+                const path = sub.path ? sub.path + ' ' : '';
+                const errorCode = sub.subKey + ' ' + path + 'Firebase error: ' + ((error || {}).code || 'unknown error');
+
+                reportError(errorCode);
+
+                loadedPromise(sub.subKey);
+                promisesBySubKey[sub.subKey].reject(errorCode);
+            }
+        }
+    }
+
     function executeListSubscribeAction(sub, parentSubKey) {
         if (subscribedRegistry[sub.subKey]) {
             //Already subscribed, just increment ref count
@@ -183,12 +197,14 @@ export default function createSubscriber({onData,
             subscribedRegistry[sub.subKey].parentSubKeys[parentSubKey] = 1;
         }
 
+        const errorHandler = handleFbError(sub);
+
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_added', sub)) return;
             subscribeToChildData(sub, getKey(snapshot), snapshot.val());
             onData(FB_CHILD_ADDED, snapshot, sub);
-        });
+        }, errorHandler);
         subscribedRegistry[sub.subKey].refHandles.child_changed = ref.on('child_changed', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_changed', sub)) return;
@@ -201,7 +217,7 @@ export default function createSubscriber({onData,
 
             onData(FB_CHILD_WILL_CHANGE, snapshot, sub);
             onData(FB_CHILD_CHANGED, snapshot, sub);
-        });
+        }, errorHandler);
         subscribedRegistry[sub.subKey].refHandles.child_removed = ref.on('child_removed', function(snapshot) {
             if (!gotInitVal) return;
             if (!check('child_removed', sub)) return;
@@ -210,7 +226,7 @@ export default function createSubscriber({onData,
             if (childUnsub) childUnsub();
             onData(FB_CHILD_WILL_REMOVE, snapshot, sub);
             onData(FB_CHILD_REMOVED, snapshot, sub);
-        });
+        }, errorHandler);
         ref.once('value', function(snapshot) {
             if (gotInitVal) {
                 console.error("Got 'once' callback for "+getKey(snapshot)+" more than once");
@@ -230,12 +246,12 @@ export default function createSubscriber({onData,
 
                 onData(FB_INIT_VAL, snapshot, sub);
 
-                loadedPromise(sub.subKey);
-
                 if (!subscribedRegistry[sub.subKey]) {
-                    promisesBySubKey[sub.subKey].reject("No longer subscribed to "+sub.subKey);
+                    //no longer subscribed (onData callback could've unsubscribed us)
                     return;
                 }
+
+                loadedPromise(sub.subKey);
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
@@ -251,7 +267,7 @@ export default function createSubscriber({onData,
                     });
                 }
             }
-        });
+        }, errorHandler);
     }
 
     function executeValueSubscribeAction(sub, parentSubKey) {
@@ -289,6 +305,8 @@ export default function createSubscriber({onData,
 
         let resolved = false;
 
+        const errorHandler = handleFbError(sub);
+
         subscribedRegistry[sub.subKey].refHandles.value = ref.on('value', function(snapshot) {
             if (!check('value', sub)) return;
 
@@ -313,12 +331,13 @@ export default function createSubscriber({onData,
 
             if (!resolved) {
                 resolved = true;
-                loadedPromise(sub.subKey);
 
                 if (!subscribedRegistry[sub.subKey]) {
-                    promisesBySubKey[sub.subKey].reject("No longer subscribed to "+sub.subKey);
+                    //no longer subscribed (onData callback could've unsubscribed us)
                     return;
                 }
+
+                loadedPromise(sub.subKey);
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
@@ -335,7 +354,7 @@ export default function createSubscriber({onData,
                     });
                 }
             }
-        });
+        }, errorHandler);
     }
 
     function unsubscribeSubKey(subKey, parentSubKey) {

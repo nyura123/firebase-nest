@@ -17,8 +17,10 @@ from multiple firebase refs as your app state changes, and also as the master da
 
 1. Promises
 
-   `subscribeSubsWithPromise` allows to know when initial data, including async child subscriptions, is loaded.
-   
+   `const {unsubscribe, promise} = subscribeSubsWithPromise(subs)` allows to know when initial data, including async child subscriptions, is loaded.
+
+1. Firebase permission-denied errors are handled via `onError` callbacks and promise rejections.
+
 1. Dynamic nested subscriptions
 
    A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data

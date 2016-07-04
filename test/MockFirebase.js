@@ -20,17 +20,31 @@ function makeMockSnapshot(key, data, asVal) {
 export default class MockFirebase {
     constructor(key, data, asVal) {
         this.callbacks = {};
+        this.errorCallbacks = {};
         this.mockSnapshot = makeMockSnapshot(key, data, asVal);
         this.allocRefHandle = 1;
     }
 
-    on(eventType, callback) {
+    injectError(error) {
+        Object.keys(this.errorCallbacks || {}).forEach(eventType => {
+           Object.keys(this.errorCallbacks[eventType] || {}).forEach(refHandle => {
+              this.errorCallbacks[eventType][refHandle](error);
+           });
+        });
+    }
+
+    on(eventType, callback, errorCallback) {
         var refHandle = this.allocRefHandle++;
 
         if (!this.callbacks[eventType]) {
             this.callbacks[eventType] = {};
         }
         this.callbacks[eventType][refHandle] = callback;
+
+        if (!this.errorCallbacks[eventType]) {
+            this.errorCallbacks[eventType] = {};
+        }
+        this.errorCallbacks[eventType][refHandle] = errorCallback;
 
         if (eventType == 'value') {
             setTimeout(()=>{
