@@ -252,18 +252,19 @@ export default function createSubscriber({onData,
                 }
 
                 loadedPromise(sub.subKey);
+                const thePromise = promisesBySubKey[sub.subKey];
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
                 const trail = detectSubscribeCycle(sub.subKey,
                     Object.keys(subscribedRegistry[sub.subKey].parentSubKeys), [sub.subKey]);
                 if (trail) {
-                    promisesBySubKey[sub.subKey].reject('Cycle detected: '+trail.join('<-'));
+                    thePromise.reject('Cycle detected: '+trail.join('<-'));
                 } else {
                     Promise.all(nestedPromises).then(() => {
-                        promisesBySubKey[sub.subKey].resolve(sub.subKey);
+                        thePromise.resolve(sub.subKey);
                     }, (error) => {
-                        promisesBySubKey[sub.subKey].reject(error);
+                        thePromise.reject(error);
                     });
                 }
             }
@@ -338,6 +339,7 @@ export default function createSubscriber({onData,
                 }
 
                 loadedPromise(sub.subKey);
+                const thePromise = promisesBySubKey[sub.subKey];
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
@@ -345,12 +347,12 @@ export default function createSubscriber({onData,
                 const trail = detectSubscribeCycle(sub.subKey,
                     Object.keys(subscribedRegistry[sub.subKey].parentSubKeys), [sub.subKey]);
                 if (trail) {
-                    promisesBySubKey[sub.subKey].reject('Cycle detected: '+trail.join('<-'));
+                    thePromise.reject('Cycle detected: '+trail.join('<-'));
                 } else {
                     Promise.all(nestedPromises).then(() => {
-                        promisesBySubKey[sub.subKey].resolve(sub.subKey);
+                        thePromise.resolve(sub.subKey);
                     }, (error) => {
-                        promisesBySubKey[sub.subKey].reject(error);
+                        thePromise.reject(error);
                     });
                 }
             }
