@@ -18,6 +18,11 @@ function getSubKeys(subs) {
 }
 
 class AutoSubscriber {
+    _getSubs: any;
+    _subscribeSubs: any;
+    _subs: any;
+    _unsub: any;
+
     constructor(Component, inst) {
         //Support static and instance methods
         this._getSubs = Component.getSubs || inst.getSubs;
@@ -55,8 +60,20 @@ class AutoSubscriber {
     }
 }
 
-export default function autoSubscriber(Component) {
+interface ComponentType {
+    componentDidMount?(...args);
+    componentWillReceiveProps?(...args);
+    componentDidUpdate?(...args);
+    componentWillUnmount?(...args);
+    state?: Object;
+    props?: Object;
+}
+
+export default function autoSubscriber(Component : {new(): ComponentType}) {
+
     return class extends Component {
+        $autoSubscriber : AutoSubscriber;
+
         componentDidMount() {
             if (super.componentDidMount) super.componentDidMount();
             this.$autoSubscriber = new AutoSubscriber(Component, this);

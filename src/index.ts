@@ -12,6 +12,26 @@ export const FB_VALUE = 'FB_VALUE';
 import importedAutoSubscriber from './autoSubscriber';
 export const autoSubscriber = importedAutoSubscriber;
 
+interface ForEachChild {
+    childSubs: (childKey: string | number, ...args) => Array<Sub>,
+    args?: Array<any>
+    store?: any
+}
+
+interface ForFields {
+    fieldKey: string | number,
+    fieldSubs: (fieldVal: any, ...args) => Array<Sub>,
+    args?: Array<any>,
+    store?: any
+}
+
+interface Sub {
+    subKey: string,
+    asValue?: boolean,
+    asList?: boolean,
+    forEachChild?: ForEachChild,
+    forFields?: Array<ForFields>
+}
 
 //credit to js-promise-defer on github
 function defer(deferred) {
@@ -75,7 +95,7 @@ export default function createSubscriber({onData,
         return promisesBySubKey[subKey].promise;
     }
 
-    function subsLoaded(subs) {
+    function subsLoaded(subs : Array<Sub>) {
         return Promise.all((subs || []).map(sub => loadedPromise(sub.subKey)));
     }
 
@@ -84,7 +104,7 @@ export default function createSubscriber({onData,
         return;
     }
 
-    function subscribeToField(sub, forField, fieldKey, fieldVal, promises) {
+    function subscribeToField(sub : Sub, forField, fieldKey, fieldVal, promises) {
         const store = (forField.store ? forField.store : self);
         var fieldSubs = forField.fieldSubs(fieldVal, ...(forField.args || [])) || [];
 
@@ -97,7 +117,7 @@ export default function createSubscriber({onData,
         }
     }
 
-    function subscribeToFields(sub, val, promises) {
+    function subscribeToFields(sub : Sub, val, promises?) {
         const oldFieldUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].fieldUnsubs || {});
 
         subscribedRegistry[sub.subKey].fieldUnsubs = {};
@@ -127,7 +147,7 @@ export default function createSubscriber({onData,
         });
     }
 
-    function subscribeToChildData(sub, childKey, childVal, promises) {
+    function subscribeToChildData(sub : Sub, childKey, childVal, promises?) {
         if (!sub.forEachChild) return;
         if (!sub.forEachChild.childSubs) {
             console.error(`ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a 
@@ -184,7 +204,7 @@ export default function createSubscriber({onData,
         }
     }
 
-    function executeListSubscribeAction(sub, parentSubKey) {
+    function executeListSubscribeAction(sub : Sub, parentSubKey) {
         if (subscribedRegistry[sub.subKey]) {
             //Already subscribed, just increment ref count
             subscribedRegistry[sub.subKey].refCount++;
@@ -287,7 +307,7 @@ export default function createSubscriber({onData,
         }, errorHandler);
     }
 
-    function executeValueSubscribeAction(sub, parentSubKey) {
+    function executeValueSubscribeAction(sub : Sub, parentSubKey) {
 
         if (subscribedRegistry[sub.subKey]) {
             //Already subscribed, just increment ref count
@@ -372,7 +392,7 @@ export default function createSubscriber({onData,
         }, errorHandler);
     }
 
-    function unsubscribeSubKey(subKey, parentSubKey) {
+    function unsubscribeSubKey(subKey, parentSubKey?) {
         var info = subscribedRegistry[subKey];
         if (!info) {
             console.error('no subscriber found for subKey=' + subKey);
@@ -431,7 +451,7 @@ export default function createSubscriber({onData,
         return found ? trail : false;
     }
 
-    function subscribeSub(sub, parentSubKey=rootSubKey) {
+    function subscribeSub(sub : Sub, parentSubKey=rootSubKey) {
         if (!sub.subKey) {
             console.error('subscribeSub needs an object with a string subKey field');
             console.error(sub);
@@ -459,7 +479,7 @@ export default function createSubscriber({onData,
             unsubscribeSubKey(sub.subKey, parentSubKey);
         }
     }
-    function subscribeSubs(subs, parentSubKey=rootSubKey) {
+    function subscribeSubs(subs : Array<Sub>, parentSubKey=rootSubKey) {
         if (!subs) return;
         if (!subs.forEach) {
             console.error('subscribeSubs expects an array of subs');
@@ -473,14 +493,14 @@ export default function createSubscriber({onData,
         }
     }
 
-    function subscribeSubsWithPromise(subs, parentSubKey=rootSubKey) {
+    function subscribeSubsWithPromise(subs : Array<Sub>, parentSubKey=rootSubKey) {
         if (!subs) return;
         if (!subs.forEach) {
             console.error('subscribeSubs expects an array of subs');
             console.error(subs);
             return;
         }
-        var unsubs = subs.map(sub=>subscribeSub(sub, parentSubKey));
+        var unsubs = subs.map(sub =>subscribeSub(sub, parentSubKey));
 
         return {
             unsubscribe: function () {
