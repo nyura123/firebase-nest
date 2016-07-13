@@ -47,7 +47,9 @@ var mockFirebaseData = {
     friends: {
         user1: {user2: true, user3: true},
         user2: {user1: true},
-        user3: {user1: true}
+        user3: {user1: true, user4: true},
+        user4: {user3: true},
+        user5: {user4: true}
     },
 
     users: {
@@ -404,6 +406,7 @@ test('reject promise on circular subscriptions/initial values', (assert) => {
 
     promise.then(() => {
         assert.equal(true, false, 'promise should not be resolved');
+        assert.end();
     }, (error) => {
         const expectedErr = 'Cycle detected: friendListWithFriendList_user1<-friendListWithFriendList_user2<-friendListWithFriendList_user1';
         assert.equal(error, expectedErr, 'promise gets rejected with the right error');
@@ -412,6 +415,25 @@ test('reject promise on circular subscriptions/initial values', (assert) => {
     });
 });
 
+test('reject promise on circular subscriptions/initial values, #2', (assert) => {
+    const {subscribeSubsWithPromise} = setupSubscriber();
+
+    //1. get user5's friend user4;
+    //2. get user4's friend user3;
+    //3. get user3's friend user4; get user4's friends - cycle
+    var sub1 = friendListWithFriendListCreator("user5");
+    const {unsubscribe, promise} = subscribeSubsWithPromise(sub1);
+
+    promise.then(() => {
+        assert.equal(true, false, 'promise should not be resolved');
+        assert.end();
+    }, (error) => {
+        const expectedErr = 'Cycle detected: friendListWithFriendList_user4<-friendListWithFriendList_user3<-friendListWithFriendList_user4';
+        assert.equal(error, expectedErr, 'promise gets rejected with the right error');
+        unsubscribe();
+        assert.end()
+    });
+});
 
 test('receives onError callback on firebase error', (assert) => {
     let error = null;
