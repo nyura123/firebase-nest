@@ -405,7 +405,7 @@ test('reject promise on circular subscriptions/initial values', (assert) => {
     promise.then(() => {
         assert.equal(true, false, 'promise should not be resolved');
     }, (error) => {
-        const expectedErr = 'Cycle detected: friendListWithFriendList_user2<-friendListWithFriendList_user1<-friendListWithFriendList_user2';
+        const expectedErr = 'Cycle detected: friendListWithFriendList_user1<-friendListWithFriendList_user2<-friendListWithFriendList_user1';
         assert.equal(error, expectedErr, 'promise gets rejected with the right error');
         unsubscribe();
         assert.end()

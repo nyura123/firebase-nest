@@ -167,6 +167,23 @@ export default function createSubscriber({onData,
         }
     }
 
+    function detectAndReportSubscribeCycle(subKey) {
+        //Check whether this subKey has itself in the parent chain, and if so, reject the promise
+        const trail = detectSubscribeCycle(subKey,
+            Object.keys(subscribedRegistry[subKey].parentSubKeys), [subKey], {});
+        if (trail) {
+            const error = 'Cycle detected: ' + trail.join('<-');
+
+            //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
+            //TODO only reject if we haven't yet resolved
+            if (promisesBySubKey[subKey]) {
+                promisesBySubKey[subKey].reject(error);
+            }
+
+            reportError(error);
+        }
+    }
+
     function executeListSubscribeAction(sub, parentSubKey) {
         if (subscribedRegistry[sub.subKey]) {
             //Already subscribed, just increment ref count
@@ -179,6 +196,12 @@ export default function createSubscriber({onData,
                     parentSubKeys[parentSubKey]++;
                 }
             }
+
+            //Check whether this subKey has itself in the parent chain, and if so, reject the promise
+            if (!doNotDetectCycles) {
+                detectAndReportSubscribeCycle(sub.subKey);
+            }
+
             return;
         }
 
@@ -255,18 +278,11 @@ export default function createSubscriber({onData,
                 const thePromise = promisesBySubKey[sub.subKey];
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
-                //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
-                const trail = detectSubscribeCycle(sub.subKey,
-                    Object.keys(subscribedRegistry[sub.subKey].parentSubKeys), [sub.subKey]);
-                if (trail) {
-                    thePromise.reject('Cycle detected: '+trail.join('<-'));
-                } else {
-                    Promise.all(nestedPromises).then(() => {
-                        thePromise.resolve(sub.subKey);
-                    }, (error) => {
-                        thePromise.reject(error);
-                    });
-                }
+                Promise.all(nestedPromises).then(() => {
+                    thePromise.resolve(sub.subKey);
+                }, (error) => {
+                    thePromise.reject(error);
+                });
             }
         }, errorHandler);
     }
@@ -284,6 +300,11 @@ export default function createSubscriber({onData,
                 } else {
                     parentSubKeys[parentSubKey]++;
                 }
+            }
+
+            //Check whether this subKey has itself in the parent chain, and if so, reject the promise
+            if (!doNotDetectCycles) {
+                detectAndReportSubscribeCycle(sub.subKey);
             }
 
             return;
@@ -342,19 +363,11 @@ export default function createSubscriber({onData,
                 const thePromise = promisesBySubKey[sub.subKey];
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
-                //If there's a cycle (for ex. subKey A subscribed B which subscribed A), we will never resolve, so reject the Promise
-
-                const trail = detectSubscribeCycle(sub.subKey,
-                    Object.keys(subscribedRegistry[sub.subKey].parentSubKeys), [sub.subKey]);
-                if (trail) {
-                    thePromise.reject('Cycle detected: '+trail.join('<-'));
-                } else {
-                    Promise.all(nestedPromises).then(() => {
-                        thePromise.resolve(sub.subKey);
-                    }, (error) => {
-                        thePromise.reject(error);
-                    });
-                }
+                Promise.all(nestedPromises).then(() => {
+                    thePromise.resolve(sub.subKey);
+                }, (error) => {
+                    thePromise.reject(error);
+                });
             }
         }, errorHandler);
     }
@@ -394,20 +407,25 @@ export default function createSubscriber({onData,
         if (onUnsubscribed) onUnsubscribed(subKey);
     }
 
-    function detectSubscribeCycle(subKey, parentSubKeys, trail) {
+    function detectSubscribeCycle(subKey, parentSubKeys, trail, checked) {
         if (!parentSubKeys || parentSubKeys.length == 0) return false;
 
+        let index = (parentSubKeys || []).indexOf(subKey);
+        if (index >= 0) {
+            return [...trail, parentSubKeys[index]];
+        }
+
         const found = parentSubKeys.some(parentSubKey => {
-            if (trail.indexOf(parentSubKey) >= 0) {
-                trail = [...trail, parentSubKey];
-                return true;
-            }
-            const res = detectSubscribeCycle(subKey, Object.keys((subscribedRegistry[parentSubKey] || {}).parentSubKeys || {}),
-                [...trail, parentSubKey]);
+            if (checked[parentSubKey]) return false;
+            checked[parentSubKey] = true;
+            const res = detectSubscribeCycle(subKey,
+                    Object.keys((subscribedRegistry[parentSubKey] || {}).parentSubKeys || {}),
+                    [...trail, parentSubKey], checked);
             if (res) {
                 trail = res;
+                return true;
             }
-            return res;
+            return false;
         });
 
         return found ? trail : false;
@@ -436,14 +454,6 @@ export default function createSubscriber({onData,
         }
 
         if (onSubscribed) onSubscribed(sub);
-
-        if (!doNotDetectCycles) {
-            const trail = detectSubscribeCycle(sub.subKey,
-                Object.keys(subscribedRegistry[sub.subKey].parentSubKeys), [sub.subKey]);
-            if (trail) {
-                reportError('Cycle detected: ' + trail.join('<-'));
-            }
-        }
 
         return function unsubscribe() {
             unsubscribeSubKey(sub.subKey, parentSubKey);
