@@ -79,8 +79,9 @@ export default function createSubscriber({onData,
         }
     }
 
-    var subscribedRegistry = {};
-    var promisesBySubKey = {};
+    let disallowSubscriptions = false;
+    const subscribedRegistry = {};
+    const promisesBySubKey = {};
 
     const self = {
         subscribeSubsWithPromise
@@ -181,8 +182,9 @@ export default function createSubscriber({onData,
 
                 reportError(errorCode);
 
-                loadedPromise(sub.subKey);
-                promisesBySubKey[sub.subKey].reject(errorCode);
+                if (promisesBySubKey[sub.subKey]) {
+                    promisesBySubKey[sub.subKey].reject(errorCode);
+                }
             }
         }
     }
@@ -393,11 +395,18 @@ export default function createSubscriber({onData,
     }
 
     function unsubscribeSubKey(subKey, parentSubKey?) {
+        if (disallowSubscriptions) {
+            reportError("Not allowed to unsubscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
+            return false;
+        }
+
         var info = subscribedRegistry[subKey];
         if (!info) {
             console.error('no subscriber found for subKey=' + subKey);
         } else {
+            disallowSubscriptions = true;
             if (onWillUnsubscribe) onWillUnsubscribe(subKey);
+            disallowSubscriptions = false;
             info.refCount--;
             if (parentSubKey) {
                 if (info.parentSubKeys[parentSubKey] && info.parentSubKeys[parentSubKey] > 0) {
@@ -424,7 +433,10 @@ export default function createSubscriber({onData,
                 });
             }
         }
+
+        disallowSubscriptions = true;
         if (onUnsubscribed) onUnsubscribed(subKey);
+        disallowSubscriptions = false;
     }
 
     function detectSubscribeCycle(subKey, parentSubKeys, trail, checked) {
@@ -452,6 +464,10 @@ export default function createSubscriber({onData,
     }
 
     function subscribeSub(sub : Sub, parentSubKey=rootSubKey) {
+        if (disallowSubscriptions) {
+            reportError("Not allowed to subscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
+            return () => false;
+        }
         if (!sub.subKey) {
             console.error('subscribeSub needs an object with a string subKey field');
             console.error(sub);
@@ -463,7 +479,9 @@ export default function createSubscriber({onData,
             return;
         }
 
+        disallowSubscriptions = true;
         if (onWillSubscribe) onWillSubscribe(sub);
+        disallowSubscriptions = false;
 
         if (sub.asList) {
             executeListSubscribeAction(sub, parentSubKey);
@@ -473,7 +491,9 @@ export default function createSubscriber({onData,
             console.error('sub must have asList or asValue = true');
         }
 
+        disallowSubscriptions = true;
         if (onSubscribed) onSubscribed(sub);
+        disallowSubscriptions = false;
 
         return function unsubscribe() {
             unsubscribeSubKey(sub.subKey, parentSubKey);

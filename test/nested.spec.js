@@ -67,7 +67,7 @@ var mockFirebaseData = {
     }
 };
 
-function setupSubscriber(onError) {
+function setupSubscriber(onError, onSubscribed) {
     var receivedData = {};
 
     const mockFirebases = {};
@@ -77,13 +77,13 @@ function setupSubscriber(onError) {
             if (!receivedData[sub.params.name]) receivedData[sub.params.name] = {};
             receivedData[sub.params.name][sub.params.key] = snapshot.val();
         },
-        onSubscribed: function (sub) {},
         onUnsubscribed: function (subKey) {},
         resolveFirebaseQuery: function (sub) {
             mockFirebases[sub.subKey] = new MockFirebase(sub.params.key, mockFirebaseData[sub.params.name][sub.params.key], sub.asValue);
             return mockFirebases[sub.subKey];
         },
-        onError
+        onError,
+        onSubscribed
     });
 
 
@@ -496,4 +496,87 @@ test("doesn't receive onError callback on firebase errors if unsubscribed", (ass
         assert.equal(error, null, 'onError is not called if unsubscribed');
         assert.end();
     });
+});
+
+
+test('disallows unsubscribing in onSubscribed callback', (assert) => {
+    function onSubscribed(sub) {
+        //unsubscribe parent on child subscribe
+        if (unsub && sub.subKey == "userDetail_user3") {
+            unsubscribed = true;
+            unsub();
+        }
+    }
+
+    let error = null;
+    function onError(err) {
+        error = err;
+    }
+
+    const {subscribeSubs, subscribedRegistry} = setupSubscriber(onError, onSubscribed);
+
+    let unsubscribed = false;
+
+    function childSubs(childKey, childVal) {
+        assert.notEqual(childVal, undefined, "childVal got passed to childSubs");
+        return userDetailSubCreator(childKey);
+    }
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].forEachChild = {childSubs: childSubs};
+    let unsub = subscribeSubs(sub1);
+
+    setTimeout(()=> {
+        assert.equal(unsubscribed, true, "unsubscribed in the middle of child subscriptions");
+
+        assert.equal(error, "Not allowed to unsubscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks", "gets correct error");
+
+        assert.equal(Object.keys(subscribedRegistry).length, 3, "nested unsubscribe ignored");
+
+        unsub();
+        assert.equal(Object.keys(subscribedRegistry).length, 0, "later unsubscribe successfull");
+
+        assert.end();
+    }, 100);
+});
+
+
+test('disallows subscribing in onSubscribed callback', (assert) => {
+    let nestedSubscribed = false;
+    function onSubscribed(sub) {
+        //unsubscribe parent on child subscribe
+        if (unsub && sub.subKey == "userDetail_user2") {
+            nestedSubscribed = true;
+            subscribeSubs(friendListWithDetailSubCreator("user1"));
+        }
+    }
+
+    let error = null;
+    function onError(err) {
+        error = err;
+    }
+
+    const {subscribeSubs, subscribedRegistry} = setupSubscriber(onError, onSubscribed);
+
+
+    function childSubs(childKey, childVal) {
+        assert.notEqual(childVal, undefined, "childVal got passed to childSubs");
+        return userDetailSubCreator(childKey);
+    }
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].forEachChild = {childSubs: childSubs};
+    let unsub = subscribeSubs(sub1);
+
+    setTimeout(()=> {
+        assert.equal(nestedSubscribed, true, "unsubscribed in the middle of child subscriptions");
+
+        assert.equal(error, "Not allowed to subscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks", "gets correct error");
+
+        unsub();
+
+        assert.equal(Object.keys(subscribedRegistry).length, 0, "nested subscribe ignored/unsubscribe successfull");
+
+        assert.end();
+    }, 100);
 });
