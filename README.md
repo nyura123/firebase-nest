@@ -9,6 +9,39 @@ and you might want to pull each friend's profile.
 Normally, you have to do a lot of dynamic subscription management, remembering to subscribe and unsubscribe
 from multiple firebase refs as your app state changes, and also as the master data (e.g. friend lists) changes.
 
+# Basic example
+
+```js
+import createSubscriber from 'firebase-nest';
+import Firebase from 'firebase';
+const fb = new Firebase('https://docs-examples.firebaseio.com');
+const subscriber = createSubscriber({
+    resolveFirebaseQuery: function(sub) {
+        return fb.child(sub.path);
+    },
+    onData: function(type, snapshot, sub) {
+        console.log('onData: type='+type+', subKey='+sub.subKey+', fbKey='+snapshot.key());
+    }
+});
+const { unsubscribe, promise } = subscriber.subscribeSubsWithPromise([{
+    subKey: 'chats',
+    asList: true,
+    path: 'samplechat/messages',
+    forEachChild: {
+        childSubs: function(messageKey, messageData) {
+            return [{
+                subKey: 'user_'+messageData.uid,
+                asValue: true,
+                path: 'samplechat/users/'+messageData.uid
+            }];
+        }
+    }
+}]);
+promise.then(() => {
+    console.log('initial data loaded');
+});
+```
+
 # Features
 
 1. Declarative subscriptions
@@ -58,7 +91,7 @@ Subs with `asList`=true result in
 
 # Usage
 
-1. `npm install firebase-nest --save`
+1. `npm install firebase firebase-nest --save`
 
 1.  Initialize the subscriber - generally should be a global/singleton
 
