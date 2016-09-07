@@ -20,17 +20,12 @@ function makeMockSnapshot(key, data, asVal) {
 export default class MockFirebase {
     constructor(key, data, asVal) {
         this.callbacks = {};
-        this.errorCallbacks = {};
         this.mockSnapshot = makeMockSnapshot(key, data, asVal);
         this.allocRefHandle = 1;
     }
 
     injectError(error) {
-        Object.keys(this.errorCallbacks || {}).forEach(eventType => {
-           Object.keys(this.errorCallbacks[eventType] || {}).forEach(refHandle => {
-              this.errorCallbacks[eventType][refHandle](error);
-           });
-        });
+        this.injectedError = error;
     }
 
     on(eventType, callback, errorCallback) {
@@ -40,11 +35,6 @@ export default class MockFirebase {
             this.callbacks[eventType] = {};
         }
         this.callbacks[eventType][refHandle] = callback;
-
-        if (!this.errorCallbacks[eventType]) {
-            this.errorCallbacks[eventType] = {};
-        }
-        this.errorCallbacks[eventType][refHandle] = errorCallback;
 
         if (eventType == 'value') {
             setTimeout(()=>{
@@ -58,6 +48,10 @@ export default class MockFirebase {
                     Object.keys(this.mockSnapshot).forEach(key=>callback(this.mockSnapshot[key]));
                 }
             }, 5);
+        }
+
+        if (this.injectedError && errorCallback) {
+            errorCallback(this.injectedError);
         }
 
         return refHandle;

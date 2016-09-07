@@ -242,6 +242,9 @@ export default function createSubscriber({onData,
             subscribedRegistry[sub.subKey].parentSubKeys[parentSubKey] = 1;
         }
 
+        loadedPromise(sub.subKey);
+        const thePromise = promisesBySubKey[sub.subKey];
+
         const errorHandler = handleFbError(sub);
 
         subscribedRegistry[sub.subKey].refHandles.child_added = ref.on('child_added', function(snapshot) {
@@ -296,9 +299,6 @@ export default function createSubscriber({onData,
                     return;
                 }
 
-                loadedPromise(sub.subKey);
-                const thePromise = promisesBySubKey[sub.subKey];
-
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 Promise.all(nestedPromises).then(() => {
                     thePromise.resolve(sub.subKey);
@@ -347,6 +347,9 @@ export default function createSubscriber({onData,
             subscribedRegistry[sub.subKey].parentSubKeys[parentSubKey] = 1;
         }
 
+        loadedPromise(sub.subKey);
+        const thePromise = promisesBySubKey[sub.subKey];
+
         let resolved = false;
 
         const errorHandler = handleFbError(sub);
@@ -380,9 +383,6 @@ export default function createSubscriber({onData,
                     //no longer subscribed (onData callback could've unsubscribed us)
                     return;
                 }
-
-                loadedPromise(sub.subKey);
-                const thePromise = promisesBySubKey[sub.subKey];
 
                 //Once all initial child & field promises are resolved, we can resolve ourselves
                 Promise.all(nestedPromises).then(() => {

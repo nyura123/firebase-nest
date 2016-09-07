@@ -67,7 +67,7 @@ var mockFirebaseData = {
     }
 };
 
-function setupSubscriber(onError, onSubscribed) {
+function setupSubscriber(onError, onSubscribed, injectError) {
     var receivedData = {};
 
     const mockFirebases = {};
@@ -80,6 +80,9 @@ function setupSubscriber(onError, onSubscribed) {
         onUnsubscribed: function (subKey) {},
         resolveFirebaseQuery: function (sub) {
             mockFirebases[sub.subKey] = new MockFirebase(sub.params.key, mockFirebaseData[sub.params.name][sub.params.key], sub.asValue);
+            if (injectError) {
+                mockFirebases[sub.subKey].injectError({code: injectError});
+            }
             return mockFirebases[sub.subKey];
         },
         onError,
@@ -435,69 +438,29 @@ test('reject promise on circular subscriptions/initial values, #2', (assert) => 
     });
 });
 
-test('receives onError callback on firebase error', (assert) => {
+test('receives onError callback and promise rejection on firebase error', (assert) => {
     let error = null;
-    const {subscribeSubsWithPromise, mockFirebases} = setupSubscriber(
+    const {subscribeSubsWithPromise} = setupSubscriber(
         function onError(err) {
             error = err;
-        }
-    );
-
-    var sub1 = userDetailSubCreator("user1");
-    const {unsubscribe, promise} = subscribeSubsWithPromise(sub1);
-
-    promise.then(() => {
-        assert.equal(error, null, 'error is null initially');
-        const mockFirebase = mockFirebases[sub1[0].subKey];
-        mockFirebase.injectError({code:"test error"});
-        assert.equal(error, 'userDetail_user1 Firebase error: test error', 'onError is called with the right error');
-        unsubscribe();
-        assert.end();
-    });
-});
-
-
-test('promise is rejected on firebase error', (assert) => {
-    const {subscribeSubsWithPromise, mockFirebases} = setupSubscriber();
-
-    var sub1 = userDetailSubCreator("user1");
-    const {unsubscribe, promise} = subscribeSubsWithPromise(sub1);
-
-    const mockFirebase = mockFirebases[sub1[0].subKey];
-    mockFirebase.injectError({code:"test error"});
-
-    promise.then(
-        () => {
-            assert(true, false, 'promise should not be resolved');
         },
-        (error) => {
-            assert.equal(error, 'userDetail_user1 Firebase error: test error', 'promise is rejected with the right error');
-            unsubscribe();
-            assert.end();
-    });
-});
-
-test("doesn't receive onError callback on firebase errors if unsubscribed", (assert) => {
-    let error = null;
-    const {subscribeSubsWithPromise, mockFirebases} = setupSubscriber(
-        function onError(err) {
-            error = err;
-        }
+        null,
+        'test error' //injectError
     );
 
     var sub1 = userDetailSubCreator("user1");
     const {unsubscribe, promise} = subscribeSubsWithPromise(sub1);
 
     promise.then(() => {
-        assert.equal(error, null, 'error is null initially');
-        unsubscribe();
-        const mockFirebase = mockFirebases[sub1[0].subKey];
-        mockFirebase.injectError({code:"test error"});
-        assert.equal(error, null, 'onError is not called if unsubscribed');
-        assert.end();
-    });
+          assert(true, false, 'promise should not be resolved');
+          assert.end();
+      },
+      (error) => {
+          assert.equal(error, 'userDetail_user1 Firebase error: test error', 'promise is rejected with the right error');
+          unsubscribe();
+          assert.end()
+      });
 });
-
 
 test('disallows unsubscribing in onSubscribed callback', (assert) => {
     function onSubscribed(sub) {
