@@ -79,7 +79,7 @@ export default function createSubscriber({onData,
         }
     }
 
-    let disallowSubscriptions = false;
+    //let disallowSubscriptions = false;
     const subscribedRegistry = {};
     const promisesBySubKey = {};
 
@@ -111,6 +111,11 @@ export default function createSubscriber({onData,
 
         const {unsubscribe, promise} = store.subscribeSubsWithPromise(fieldSubs, sub.subKey);
 
+        if (!subscribedRegistry[sub.subKey]) {
+            //edge case - roll back subscribe if somehow our parent got unsubscribed by on* callbacks
+            unsubscribe();
+            return;
+        };
         subscribedRegistry[sub.subKey].fieldUnsubs[fieldKey] = unsubscribe;
 
         if (promises) {
@@ -119,6 +124,8 @@ export default function createSubscriber({onData,
     }
 
     function subscribeToFields(sub : Sub, val, promises?) {
+        if (!subscribedRegistry[sub.subKey]) return;
+
         const oldFieldUnsubs = Object.assign({}, subscribedRegistry[sub.subKey].fieldUnsubs || {});
 
         subscribedRegistry[sub.subKey].fieldUnsubs = {};
@@ -159,6 +166,11 @@ export default function createSubscriber({onData,
 
         const {unsubscribe, promise} = store.subscribeSubsWithPromise(childSubs, sub.subKey);
 
+        if (!subscribedRegistry[sub.subKey]) {
+            //roll back if parent got unsubscribed by on* callbacks
+            unsubscribe();
+            return;
+        };
         subscribedRegistry[sub.subKey].childUnsubs[childKey] = unsubscribe;
 
         if (promises) {
@@ -395,18 +407,18 @@ export default function createSubscriber({onData,
     }
 
     function unsubscribeSubKey(subKey, parentSubKey?) {
-        if (disallowSubscriptions) {
-            reportError("Not allowed to unsubscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
-            return false;
-        }
+        // if (disallowSubscriptions) {
+        //     reportError("Not allowed to unsubscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
+        //     return false;
+        // }
 
         var info = subscribedRegistry[subKey];
         if (!info) {
             console.error('no subscriber found for subKey=' + subKey);
         } else {
-            disallowSubscriptions = true;
+            // disallowSubscriptions = true;
             if (onWillUnsubscribe) onWillUnsubscribe(subKey);
-            disallowSubscriptions = false;
+            // disallowSubscriptions = false;
             info.refCount--;
             if (parentSubKey) {
                 if (info.parentSubKeys[parentSubKey] && info.parentSubKeys[parentSubKey] > 0) {
@@ -434,9 +446,9 @@ export default function createSubscriber({onData,
             }
         }
 
-        disallowSubscriptions = true;
+        // disallowSubscriptions = true;
         if (onUnsubscribed) onUnsubscribed(subKey);
-        disallowSubscriptions = false;
+        // disallowSubscriptions = false;
     }
 
     function detectSubscribeCycle(subKey, parentSubKeys, trail, checked) {
@@ -464,10 +476,10 @@ export default function createSubscriber({onData,
     }
 
     function subscribeSub(sub : Sub, parentSubKey=rootSubKey) {
-        if (disallowSubscriptions) {
-            reportError("Not allowed to subscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
-            return () => false;
-        }
+        // if (disallowSubscriptions) {
+        //     reportError("Not allowed to subscribe within onSubscribed/onWillSubscribe/onUnsubscribed/onWillUnsubscribe callbacks");
+        //     return () => false;
+        // }
         if (!sub.subKey) {
             console.error('subscribeSub needs an object with a string subKey field');
             console.error(sub);
@@ -479,9 +491,9 @@ export default function createSubscriber({onData,
             return;
         }
 
-        disallowSubscriptions = true;
+        // disallowSubscriptions = true;
         if (onWillSubscribe) onWillSubscribe(sub);
-        disallowSubscriptions = false;
+        // disallowSubscriptions = false;
 
         if (sub.asList) {
             executeListSubscribeAction(sub, parentSubKey);
@@ -491,9 +503,9 @@ export default function createSubscriber({onData,
             console.error('sub must have asList or asValue = true');
         }
 
-        disallowSubscriptions = true;
+        // disallowSubscriptions = true;
         if (onSubscribed) onSubscribed(sub);
-        disallowSubscriptions = false;
+        // disallowSubscriptions = false;
 
         return function unsubscribe() {
             unsubscribeSubKey(sub.subKey, parentSubKey);
