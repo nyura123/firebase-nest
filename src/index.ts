@@ -25,7 +25,7 @@ interface ForFields {
     store?: any
 }
 
-interface Sub {
+export interface Sub {
     subKey: string,
     asValue?: boolean,
     asList?: boolean,
@@ -543,8 +543,12 @@ export default function createSubscriber({onData,
     }
 
     function unsubscribeAll() {
-        while (Object.keys(subscribedRegistry || {}).length > 0) {
-            unsubscribeSubKey(Object.keys(subscribedRegistry)[0])
+        for (let subKey in subscribedRegistry) {
+            const sub = subscribedRegistry[subKey];
+            const numRootSubscribes = (sub.parentSubKeys || {})[rootSubKey] || 0;
+            for (let i = 0; i < numRootSubscribes; i++) {
+                unsubscribeSubKey(subKey);
+            }
         }
     }
 

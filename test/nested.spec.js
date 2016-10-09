@@ -72,7 +72,7 @@ function setupSubscriber(onError, onSubscribed, injectError) {
 
     const mockFirebases = {};
 
-    var {subscribeSubs, subscribedRegistry, subscribeSubsWithPromise} = createNestedFirebaseSubscriber({
+    var {subscribeSubs, subscribedRegistry, subscribeSubsWithPromise, unsubscribeAll} = createNestedFirebaseSubscriber({
         onData: function (type, snapshot, sub) {
             if (!receivedData[sub.params.name]) receivedData[sub.params.name] = {};
             receivedData[sub.params.name][sub.params.key] = snapshot.val();
@@ -90,7 +90,7 @@ function setupSubscriber(onError, onSubscribed, injectError) {
     });
 
 
-    return {mockFirebases, subscribeSubs, subscribedRegistry, receivedData, subscribeSubsWithPromise};
+    return {mockFirebases, subscribeSubs, subscribedRegistry, receivedData, subscribeSubsWithPromise, unsubscribeAll};
 }
 
 test('test refCount after subscribing/unsubscribing with same or different subKeys', (assert) => {
@@ -116,6 +116,28 @@ test('test refCount after subscribing/unsubscribing with same or different subKe
 
     assert.end();
 });
+
+test('test refCount after unsubscribeAll', (assert) => {
+    const {subscribeSubs, subscribedRegistry, unsubscribeAll} = setupSubscriber();
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    subscribeSubs(sub1);
+    assert.equal(subscribedRegistry[sub1[0].subKey].refCount, 1, "ref count for user1 friends is 1 after first subscription");
+
+    var sub2 = friendListWithDetailSubCreator("user1");
+    subscribeSubs(sub2);
+    assert.equal(subscribedRegistry[sub2[0].subKey].refCount, 2, "ref count for user1 friends is 2 after second subscription");
+
+    var sub3 = friendListWithDetailSubCreator("user2");
+    subscribeSubs(sub3);
+    assert.equal(subscribedRegistry[sub3[0].subKey].refCount, 1, "ref count for user2 friends is 1 after first subscription");
+
+    unsubscribeAll();
+    assert.equal((subscribedRegistry[sub1[0].subKey]||{}).refCount, undefined, "ref count for user1 friends is undefined after 1 unsubscribe");
+
+    assert.end();
+});
+
 
 
 test('test subscribes to user details in a friends list', (assert) => {
@@ -494,7 +516,7 @@ test('does not crash when unsubscribing in onSubscribed callback', (assert) => {
 });
 
 
-test('disallows subscribing in onSubscribed callback', (assert) => {
+test('allows subscribing in onSubscribed callback', (assert) => {
     let nestedSubscribed = false;
     let nestedUnsub = null;
     function onSubscribed(sub) {
@@ -517,7 +539,7 @@ test('disallows subscribing in onSubscribed callback', (assert) => {
     let unsub = subscribeSubs(sub1);
 
     setTimeout(()=> {
-        assert.equal(nestedSubscribed, true, "unsubscribed in the middle of child subscriptions");
+        assert.equal(nestedSubscribed, true, "subscribed in the middle of child subscriptions");
 
         assert.equal(Object.keys(subscribedRegistry).length, 3, "nested subscribe successfull");
 
@@ -528,6 +550,36 @@ test('disallows subscribing in onSubscribed callback', (assert) => {
         nestedUnsub();
 
         assert.equal(Object.keys(subscribedRegistry).length, 0, "nested unsubscribe successful");
+
+        assert.end();
+    }, 100);
+});
+
+
+test('handles unsubscribeAll in onSubscribed callback', (assert) => {
+
+    const {subscribeSubs, subscribedRegistry, unsubscribeAll} = setupSubscriber(null /*onError*/, onSubscribed);
+
+    function onSubscribed(sub) {
+        //Unsubscribe from all on child subscribe
+        if (sub.subKey == "userDetail_user2") {
+            unsubscribeAll();
+        }
+    }
+
+    function childSubs(childKey, childVal) {
+        assert.notEqual(childVal, undefined, "childVal got passed to childSubs");
+        return userDetailSubCreator(childKey);
+    }
+
+    var sub1 = friendListWithDetailSubCreator("user1");
+    sub1[0].forEachChild = {childSubs: childSubs};
+    subscribeSubs(sub1);
+
+    setTimeout(()=> {
+        //assert.equal(nestedSubscribed, true, "subscribed in the middle of child subscriptions");
+
+        assert.equal(Object.keys(subscribedRegistry).length, 0, "unsubscribeAll successful");
 
         assert.end();
     }, 100);
