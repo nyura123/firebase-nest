@@ -93,7 +93,7 @@ function setupSubscriber(onError, onSubscribed, injectError) {
     return {mockFirebases, subscribeSubs, subscribedRegistry, receivedData, subscribeSubsWithPromise, unsubscribeAll};
 }
 
-test('test refCount after subscribing/unsubscribing with same or different subKeys', (assert) => {
+test('refCount after subscribing/unsubscribing with same or different subKeys', (assert) => {
     const {subscribeSubs, subscribedRegistry} = setupSubscriber();
 
     var sub1 = friendListWithDetailSubCreator("user1");
@@ -117,7 +117,7 @@ test('test refCount after subscribing/unsubscribing with same or different subKe
     assert.end();
 });
 
-test('test refCount after unsubscribeAll', (assert) => {
+test('refCount after unsubscribeAll', (assert) => {
     const {subscribeSubs, subscribedRegistry, unsubscribeAll} = setupSubscriber();
 
     var sub1 = friendListWithDetailSubCreator("user1");
@@ -138,9 +138,7 @@ test('test refCount after unsubscribeAll', (assert) => {
     assert.end();
 });
 
-
-
-test('test subscribes to user details in a friends list', (assert) => {
+test('subscribes to user details in a friends list', (assert) => {
     const {subscribeSubs, receivedData, subscribedRegistry} = setupSubscriber();
 
     var sub1 = friendListWithDetailSubCreator("user1");
@@ -162,7 +160,7 @@ test('test subscribes to user details in a friends list', (assert) => {
 });
 
 //same as test2, but subscribe to friends list as value, not list
-test('test subscribes to user details in a friends list (with subs[0].asValue == true)', (assert) => {
+test('subscribes to user details in a friends list (with subs[0].asValue == true)', (assert) => {
     const {subscribeSubs, receivedData, subscribedRegistry} = setupSubscriber();
 
     var sub1 = friendListWithDetailSubCreator("user1");
@@ -311,7 +309,101 @@ test('fieldSubs get subscribed to with the right args', (assert) => {
 
         assert.end();
     }, 100);
+});
 
+test('fieldSubs get unsubscribed when value is erased', (assert) => {
+    const {mockFirebases, subscribeSubs, subscribedRegistry, receivedData} = setupSubscriber();
+
+    function field1Subs(fieldVal, arg1, arg2) {
+        assert.equal(fieldVal, 'user1', 'fieldVal got passed to field1Subs');
+        assert.equal(arg1,1,"arg1 got passed to field sub");
+        assert.equal(arg2,2,"arg2 got passed to field sub");
+        return friendListWithDetailSubCreator(fieldVal);
+    }
+
+    function valueSubCreator() {
+        return [
+            {
+                subKey: 'someValue',
+                asValue: true,
+                forFields: [
+                    {fieldKey: 'field1', fieldSubs: field1Subs, args: [1, 2]}
+                ],
+
+                params: {key: 'someValue', name: 'someValue'}
+            }
+        ]
+    }
+
+    const unsub = subscribeSubs(valueSubCreator());
+
+    setTimeout(()=> {
+        //assert.equal(Object.keys(subscribedRegistry).length, 3, "subscribedRegistry is correct after fieldSubs are subscribed");
+
+        assert.true(subscribedRegistry['someValue'], 'main sub subscribed');
+        assert.true(subscribedRegistry['friendListWithUserDetail_user1'], 'field subscribed');
+
+        //Erase value
+        const mockFirebase = mockFirebases['someValue'];
+        mockFirebase.forceCallback('value', null);
+
+        assert.true(subscribedRegistry['someValue'], 'main sub subscribed');
+        assert.false(subscribedRegistry['friendListWithUserDetail_user1'], 'field unsubscribed');
+
+        //assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after value is erased");
+
+        unsub();
+        assert.false(subscribedRegistry['someValue'], 'main sub unsubscribed');
+
+        assert.end();
+    }, 100);
+});
+
+test('can handle non-object values for asValue subscriptions', (assert) => {
+    const {mockFirebases, subscribeSubs, subscribedRegistry} = setupSubscriber();
+
+    const subs = [
+        {
+            subKey: 'mySub',
+            asValue: true,
+            forEachChild: {childSubs: userDetailSubCreator},
+            forFields: [
+                {fieldKey: 'field1', fieldSubs: []}
+            ],
+
+            params: {name: 'friends', key: 'user1'}
+        }
+    ];
+
+    const unsub1 = subscribeSubs(subs);
+
+    mockFirebases['mySub'].forceCallback('value', 5);
+
+    unsub1();
+
+    assert.end();
+});
+
+test('can handle non-object values for asList subscriptions', (assert) => {
+    const {mockFirebases, subscribeSubs, subscribedRegistry} = setupSubscriber();
+
+    const subs = [
+        {
+            subKey: 'mySub',
+            asList: true,
+            forEachChild: {childSubs: userDetailSubCreator},
+
+            params: {name: 'friends', key: 'user1'}
+        }
+    ];
+
+    const unsub1 = subscribeSubs(subs);
+
+    mockFirebases['mySub'].forceCallback('value', 5, {once: true});
+
+    unsub1();
+
+    assert.end();
 });
 
 test('resolves loaded promise', (assert) => {
@@ -554,7 +646,6 @@ test('allows subscribing in onSubscribed callback', (assert) => {
         assert.end();
     }, 100);
 });
-
 
 test('handles unsubscribeAll in onSubscribed callback', (assert) => {
 

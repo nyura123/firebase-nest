@@ -135,17 +135,19 @@ export default function createSubscriber({onData,
         if (forFields.constructor !== Array) {
             console.error('ERROR: forFields must be an array');
         } else {
-            val = val || {};
-            (forFields || []).forEach(forField => {
-                if (!forField.fieldKey || !forField.fieldSubs) {
-                    console.error('ERROR: each element in forFields must have fieldKey and fieldSubs keys');
-                    return;
-                }
-                const fieldVal = val[forField.fieldKey];
-                if (fieldVal !== undefined) {
-                    subscribeToField(sub, forField, forField.fieldKey, fieldVal, promises);
-                }
-            })
+            if (val !== null && (typeof val == 'object')) {
+                val = val || {};
+                (forFields || []).forEach(forField => {
+                    if (!forField.fieldKey || !forField.fieldSubs) {
+                        console.error('ERROR: each element in forFields must have fieldKey and fieldSubs keys');
+                        return;
+                    }
+                    const fieldVal = val[forField.fieldKey];
+                    if (fieldVal !== undefined) {
+                        subscribeToField(sub, forField, forField.fieldKey, fieldVal, promises);
+                    }
+                })
+            }
         }
 
         //Unsubscribe old fields
@@ -379,12 +381,13 @@ export default function createSubscriber({onData,
             var val = snapshot.val();
             if (val !== null && (typeof val == 'object')) {
                 Object.keys(val).forEach(childKey=>subscribeToChildData(sub, childKey, val[childKey], nestedPromises));
-                subscribeToFields(sub, val, nestedPromises);
             }
             Object.keys(oldChildUnsubs || {}).forEach(childKey=>{
                 const childUnsub = oldChildUnsubs[childKey];
                 childUnsub();
             });
+
+            subscribeToFields(sub, val, nestedPromises);
 
             onData(FB_VALUE, snapshot, sub);
 

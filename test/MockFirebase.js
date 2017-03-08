@@ -19,9 +19,13 @@ function makeMockSnapshot(key, data, asVal) {
 
 export default class MockFirebase {
     constructor(key, data, asVal) {
+        this.key = key;
         this.callbacks = {};
         this.mockSnapshot = makeMockSnapshot(key, data, asVal);
         this.allocRefHandle = 1;
+
+        //for forcing callbacks
+        this.callbacksByEventType = {};
     }
 
     injectError(error) {
@@ -35,6 +39,8 @@ export default class MockFirebase {
             this.callbacks[eventType] = {};
         }
         this.callbacks[eventType][refHandle] = callback;
+
+        this.callbacksByEventType[eventType] = callback;
 
         if (eventType == 'value') {
             setTimeout(()=>{
@@ -58,6 +64,7 @@ export default class MockFirebase {
     }
 
     once(eventType, callback) {
+        this.callbacksByEventType[eventType] = callback;
         setTimeout(()=>{
             callback(this.mockSnapshot);
         }, 5);
@@ -68,6 +75,13 @@ export default class MockFirebase {
         delete callbacks[refHandle];
         if (Object.keys(callbacks).length == 0) {
             delete this.callbacks[eventType];
+        }
+    }
+
+    forceCallback(eventType, value, {once} = {}) {
+        const callback = this.callbacksByEventType[eventType];
+        if (callback) {
+            callback(makeMockSnapshot(this.key, value));
         }
     }
 }
