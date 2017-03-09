@@ -11,6 +11,7 @@ export const FB_VALUE = 'FB_VALUE';
 
 import importedAutoSubscriber from './autoSubscriber';
 export const autoSubscriber = importedAutoSubscriber;
+export { createAutoSubscriber } from './autoSubscriber';
 
 interface ForEachChild {
     childSubs: (childKey: string | number, ...args) => Array<Sub>,

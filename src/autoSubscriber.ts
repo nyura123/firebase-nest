@@ -17,18 +17,22 @@ function getSubKeys(subs) {
     return Object.keys(subs || {}).map(k=>subs[k].subKey).sort().join(",");
 }
 
+interface SubCallbacks {
+    getSubs(...args);
+    subscribeSubs(...args);
+}
+
 class AutoSubscriber {
     _getSubs: any;
     _subscribeSubs: any;
     _subs: any;
     _unsub: any;
 
-    constructor(Component, inst) {
+    constructor(Component, inst, subCallbacks?:SubCallbacks) {
         //Support static and instance methods
-        this._getSubs = Component.getSubs || inst.getSubs;
-        this._subscribeSubs = Component.subscribeSubs || (inst.subscribeSubs ? inst.subscribeSubs.bind(inst) : undefined);
+        this._getSubs = subCallbacks && subCallbacks.getSubs ? subCallbacks.getSubs : (Component.getSubs || (inst.getSubs ? inst.getSubs.bind(inst) : undefined));
+        this._subscribeSubs = subCallbacks && subCallbacks.subscribeSubs ? subCallbacks.subscribeSubs : (Component.subscribeSubs || (inst.subscribeSubs ? inst.subscribeSubs.bind(inst) : undefined));
         this.checkAndStubMethods(Component);
-        this.updateSubscriptions(inst.props, inst.state);
     }
 
     updateSubscriptions(props, state) {
@@ -54,7 +58,7 @@ class AutoSubscriber {
     checkAndStubMethods(Component) {
         if (!this._getSubs || !this._subscribeSubs) {
             const componentName = Component.displayName || Component.name || "unknown component";
-            console.error("Define getSubs and subscribeSubs on " + componentName + " to use firebase-nest autoSubscriber");
+            console.error("firebase-nest: define getSubs and subscribeSubs on " + componentName + " component or pass them to createAutoSubscriber");
             this._getSubs = (() => []);
         }
     }
@@ -65,18 +69,28 @@ interface ComponentType {
     componentWillReceiveProps?(...args);
     componentDidUpdate?(...args);
     componentWillUnmount?(...args);
+    render();
     state?: Object;
     props?: Object;
 }
 
-export default function autoSubscriber(Component : {new(): ComponentType}) {
+export function createAutoSubscriber(subCallbacks?:SubCallbacks) {
+    return Component => autoSubscriber(Component, subCallbacks);
+}
+
+export default function autoSubscriber(Component : {new(props:any): ComponentType}, subCallbacks?:SubCallbacks) {
 
     return class extends Component {
         $autoSubscriber : AutoSubscriber;
 
+        constructor(props) {
+            super(props);
+            this.$autoSubscriber = new AutoSubscriber(Component, this, subCallbacks);
+        }
+
         componentDidMount() {
             if (super.componentDidMount) super.componentDidMount();
-            this.$autoSubscriber = new AutoSubscriber(Component, this);
+            this.$autoSubscriber.updateSubscriptions(this.props, this.state);
         }
 
         //If a component is receiving new props, check and possibly update its subscriptions
@@ -95,6 +109,16 @@ export default function autoSubscriber(Component : {new(): ComponentType}) {
             if (super.componentWillUnmount) super.componentWillUnmount();
             this.$autoSubscriber.unsubscribe();
             this.$autoSubscriber = null;
+        }
+
+        render() {
+            const getSubs = this.$autoSubscriber._getSubs;
+
+            //specifically done for mobx, to re-render based on any observables accessed in getSubs.
+            //for example, if getSubs returns subs based on a logged-in observable flag.
+            getSubs && getSubs(this.props, this.state);
+
+            return super.render();
         }
     }
 }
