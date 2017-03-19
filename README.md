@@ -27,15 +27,11 @@ const { unsubscribe, promise } = subscriber.subscribeSubsWithPromise([{
     subKey: 'chats',
     asList: true,
     path: 'samplechat/messages',
-    forEachChild: {
-        childSubs: function(messageKey, messageData) {
-            return [{
+    childSubs: (messageKey, messageData) => [{
                 subKey: 'user_'+messageData.uid,
                 asValue: true,
                 path: 'samplechat/users/'+messageData.uid
-            }];
-        }
-    }
+            }]
 }]);
 promise.then(() => {
     console.log('initial data loaded');
@@ -56,7 +52,7 @@ promise.then(() => {
 
 1. Dynamic nested subscriptions
 
-   A sub corresponds to a firebase ref/query, and can have a `forEachChild` that specifies how to subscribe to data
+   A sub corresponds to a firebase ref/query, and can have a `childSubs` that specifies how to subscribe to data
 for each child.
 
 1. RefCounted firebase refs
@@ -130,7 +126,7 @@ const user1Subs =
         {
             subKey: 'userDetail_user1', //can use any naming scheme you want to identify your logical sources
             asValue: true, //or asList: true
-            //optional: forEachChild: {childSubs: ...} to specify how to subscribe to data for each child
+            //optional: childSubs: ... to specify how to subscribe to data for each child
 
             //custom fields - can be anything you want, will be passed into onData & resolveFirebaseQuery callbacks
             path: 'https://your-firebase.com/users/user1'
@@ -189,7 +185,7 @@ function allDinosaursSubCreator() {
     return [{
         subKey: "allDinosaurs",
         path: "https://dinosaur-facts.firebaseio.com/dinosaurs",
-        forEachChild: {childSubs: dinosaurScoreAndDetailSubCreator},
+        childSubs: dinosaurScoreAndDetailSubCreator,
         //asValue will work as well. asList generally has better performance for large datasets with small changes
         asList: true
     }];
@@ -294,7 +290,7 @@ function friendListWithDetailSubCreator(userKey) {
         {
             subKey: 'friendListWithUserDetail_'+userKey,
             asList: true,
-            forEachChild: {childSubs: userDetailSubCreator},
+            childSubs: userDetailSubCreator,
 
             params: {name: 'friends', key: userKey},
             path: "https://my/path/to/friends/"+userKey

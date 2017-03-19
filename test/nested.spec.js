@@ -19,7 +19,7 @@ function friendListWithDetailSubCreator(userKey) {
         {
             subKey: 'friendListWithUserDetail_'+userKey,
             asList: true,
-            forEachChild: {childSubs: userDetailSubCreator},
+            childSubs: userDetailSubCreator,
 
             params: {name: 'friends', key: userKey}
         }
@@ -311,6 +311,78 @@ test('fieldSubs get subscribed to with the right args', (assert) => {
     }, 100);
 });
 
+
+test('fieldSubs get subscribed - fieldSubs format', (assert) => {
+    const {subscribeSubs, subscribedRegistry, receivedData} = setupSubscriber();
+
+    let fieldSub1Called = false, fieldSub2Called = false, fieldSub3Called = false;
+
+    function field1Subs(fieldVal) {
+        fieldSub1Called = true;
+        assert.equal(fieldVal, 'user1', 'fieldVal got passed to field1Subs');
+        return friendListWithDetailSubCreator(fieldVal);
+    }
+    function field2Subs(fieldVal) {
+        fieldSub2Called = true;
+        assert.equal(typeof fieldVal, 'object', 'fieldVal got passed to field2Subs');
+        assert.equal(fieldVal.userKey, 'user2');
+        assert.equal(fieldVal.subField1, 'val2');
+        assert.equal(fieldVal.subField2, 'val3');
+        return userDetailSubCreator(fieldVal.userKey);
+    }
+    function field3Subs(fieldVal) {
+        fieldSub3Called = true;
+        assert.equal(fieldVal, 0, 'fieldVal got passed to field3Subs');
+        return [];
+    }
+
+    function valueSubCreator() {
+        return [
+            {
+                subKey: 'someValue',
+                asValue: true,
+                fieldSubs: {
+                    'field1': field1Subs,
+                    'field2': field2Subs,
+                    'field3': field3Subs
+                },
+
+                params: {key: 'someValue', name: 'someValue'}
+            }
+        ]
+    }
+
+    const unsub = subscribeSubs(valueSubCreator());
+
+    setTimeout(()=> {
+        assert.equal(fieldSub1Called, true, "field1Sub subscribe called");
+        assert.equal(fieldSub2Called, true, "field2Sub subscribe called");
+        assert.equal(fieldSub3Called, true, "field3Sub subscribe called");
+
+        unsub();
+
+        assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after unsubscribe");
+
+        assert.equal(((receivedData.someValue || {}).someValue || {}).field1, 'user1', "received value field1");
+        assert.equal((((receivedData.someValue || {}).someValue || {}).field2 || {}).userKey, 'user2', "received value field2");
+        assert.equal(((receivedData.someValue || {}).someValue || {}).field3, 0, "received value field1");
+
+        assert.equal(((receivedData.users || {}).user2 || {}).first, 'Blue', "received users user2 data");
+        assert.equal(((receivedData.users || {}).user3 || {}).first, 'Lady', "received users user3 data");
+        assert.equal((receivedData.users || {}).user1, undefined, "didn't subscribe/receive users user1 data");
+        assert.notEqual(((receivedData.friends || {}).user1 || {}).user2, undefined, "received user1 friend user2");
+        assert.notEqual(((receivedData.friends || {}).user1 || {}).user2, undefined, "received user1 friend user3");
+
+        assert.notEqual(receivedData.friends["user1"], undefined, "received user1 friends list");
+        assert.notEqual(receivedData.users, undefined, "received user1 friends' user details");
+        Object.keys(receivedData.friends["user1"]).forEach(userKey=>{
+            assert.notEqual(receivedData.users[userKey], undefined, "received "+userKey+" user detail");
+        });
+
+        assert.end();
+    }, 100);
+});
+
 test('fieldSubs get unsubscribed when value is erased', (assert) => {
     const {mockFirebases, subscribeSubs, subscribedRegistry, receivedData} = setupSubscriber();
 
@@ -359,6 +431,50 @@ test('fieldSubs get unsubscribed when value is erased', (assert) => {
     }, 100);
 });
 
+
+test('fieldSubs get unsubscribed when value is erased - fieldSubs', (assert) => {
+    const {mockFirebases, subscribeSubs, subscribedRegistry, receivedData} = setupSubscriber();
+
+    function field1Subs(fieldVal) {
+        assert.equal(fieldVal, 'user1', 'fieldVal got passed to field1Subs');
+        return friendListWithDetailSubCreator(fieldVal);
+    }
+
+    function valueSubCreator() {
+        return [
+            {
+                subKey: 'someValue',
+                asValue: true,
+                fieldSubs: {'field1': field1Subs},
+                params: {key: 'someValue', name: 'someValue'}
+            }
+        ]
+    }
+
+    const unsub = subscribeSubs(valueSubCreator());
+
+    setTimeout(()=> {
+        //assert.equal(Object.keys(subscribedRegistry).length, 3, "subscribedRegistry is correct after fieldSubs are subscribed");
+
+        assert.true(subscribedRegistry['someValue'], 'main sub subscribed');
+        assert.true(subscribedRegistry['friendListWithUserDetail_user1'], 'field subscribed');
+
+        //Erase value
+        const mockFirebase = mockFirebases['someValue'];
+        mockFirebase.forceCallback('value', null);
+
+        assert.true(subscribedRegistry['someValue'], 'main sub subscribed');
+        assert.false(subscribedRegistry['friendListWithUserDetail_user1'], 'field unsubscribed');
+
+        //assert.equal(Object.keys(subscribedRegistry).length, 0, "subscribedRegistry empty after value is erased");
+
+        unsub();
+        assert.false(subscribedRegistry['someValue'], 'main sub unsubscribed');
+
+        assert.end();
+    }, 100);
+});
+
 test('can handle non-object values for asValue subscriptions', (assert) => {
     const {mockFirebases, subscribeSubs, subscribedRegistry} = setupSubscriber();
 
@@ -371,6 +487,28 @@ test('can handle non-object values for asValue subscriptions', (assert) => {
                 {fieldKey: 'field1', fieldSubs: []}
             ],
 
+            params: {name: 'friends', key: 'user1'}
+        }
+    ];
+
+    const unsub1 = subscribeSubs(subs);
+
+    mockFirebases['mySub'].forceCallback('value', 5);
+
+    unsub1();
+
+    assert.end();
+});
+
+test('can handle non-object values for asValue subscriptions - fieldSubs', (assert) => {
+    const {mockFirebases, subscribeSubs, subscribedRegistry} = setupSubscriber();
+
+    const subs = [
+        {
+            subKey: 'mySub',
+            asValue: true,
+            forEachChild: {childSubs: userDetailSubCreator},
+            fieldSubs: {'field1': () => []},
             params: {name: 'friends', key: 'user1'}
         }
     ];

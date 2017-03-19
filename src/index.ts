@@ -30,8 +30,10 @@ export interface Sub {
     subKey: string,
     asValue?: boolean,
     asList?: boolean,
+    childSubs?: (childKey: string | number, ...args) => Array<Sub>,
     forEachChild?: ForEachChild,
-    forFields?: Array<ForFields>
+    forFields?: Array<ForFields>,
+    fieldSubs?: any //new more terse format
 }
 
 //credit to js-promise-defer on github
@@ -40,6 +42,19 @@ function defer(deferred) {
         deferred.resolve = resolve;
         deferred.reject = reject;
     });
+}
+
+function fieldSubsToForFields(sub: Sub) {
+    const fieldSubs = sub.fieldSubs;
+    if (!fieldSubs) return [];
+    return Object.keys(fieldSubs || {}).map((key) => {
+            const getFieldSubs = fieldSubs[key];
+            return {
+                fieldKey: key,
+                fieldSubs: getFieldSubs
+            };
+        }
+    );
 }
 
 //To detect subscriber cycles, keep track of which subscribes are done from "outside" as parentSubKey="_root".
@@ -132,13 +147,13 @@ export default function createSubscriber({onData,
         subscribedRegistry[sub.subKey].fieldUnsubs = {};
 
         //Subscribe based on new fields in val
-        const forFields = sub.forFields || [];
+        const forFields = (sub.fieldSubs ? fieldSubsToForFields(sub) : sub.forFields) || [];
         if (forFields.constructor !== Array) {
-            console.error('ERROR: forFields must be an array');
+            console.error('ERROR: forFields must be an array: ',forFields);
         } else {
             if (val !== null && (typeof val == 'object')) {
                 val = val || {};
-                (forFields || []).forEach(forField => {
+                ((forFields || []) as any[]).forEach((forField : ForFields) => {
                     if (!forField.fieldKey || !forField.fieldSubs) {
                         console.error('ERROR: each element in forFields must have fieldKey and fieldSubs keys');
                         return;
@@ -159,13 +174,14 @@ export default function createSubscriber({onData,
     }
 
     function subscribeToChildData(sub : Sub, childKey, childVal, promises?) {
-        if (!sub.forEachChild) return;
-        if (!sub.forEachChild.childSubs) {
+        if (!sub.forEachChild && !sub.childSubs) return;
+        const getChildSubs = sub.forEachChild ? sub.forEachChild.childSubs : sub.childSubs;
+        if (!getChildSubs) {
             console.error(`ERROR: forEachChild must have a childSubs key - a function that returns a subs array and takes a 
                         childKey and other optional args specified in forEachChild.args`);
         }
-        const store = (sub.forEachChild.store ? sub.forEachChild.store : self);
-        var childSubs = sub.forEachChild.childSubs(childKey, ...(sub.forEachChild.args||[]), childVal) || [];
+        const store = (sub.forEachChild && sub.forEachChild.store ? sub.forEachChild.store : self);
+        const childSubs = (sub.forEachChild ? getChildSubs(childKey, ...(sub.forEachChild.args||[]), childVal) : getChildSubs(childKey, childVal)) || [];
 
         const {unsubscribe, promise} = store.subscribeSubsWithPromise(childSubs, sub.subKey);
 
