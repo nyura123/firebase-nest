@@ -89,7 +89,6 @@ export default function createSubscriber({onData,
     doNotDetectCycles}) {
 
     function reportError(error) {
-        console.error(error);
         if (onError && typeof onError === 'function') {
             onError(error);
         }
