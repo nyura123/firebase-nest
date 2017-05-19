@@ -307,6 +307,7 @@ test('fieldSubs get subscribed to with the right args', (assert) => {
             assert.notEqual(receivedData.users[userKey], undefined, "received "+userKey+" user detail");
         });
 
+
         assert.end();
     }, 100);
 });

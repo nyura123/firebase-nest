@@ -13,6 +13,8 @@ import importedAutoSubscriber from './autoSubscriber';
 export const autoSubscriber = importedAutoSubscriber;
 export { createAutoSubscriber } from './autoSubscriber';
 
+export { asDotGraph, asNodesAndEdges, defaultMakeVisNodeProps } from './subscriptionGraph';
+
 interface ForEachChild {
     childSubs: (childKey: string | number, ...args) => Array<Sub>,
     args?: Array<any>
@@ -365,6 +367,7 @@ export default function createSubscriber({onData,
         var ref = resolveFirebaseQuery(sub);
 
         subscribedRegistry[sub.subKey] = {
+            sub: sub,
             refCount: 1,
             ref: ref,
             parentSubKeys: {},
@@ -573,4 +576,3 @@ export default function createSubscriber({onData,
 
     return { subscribeSubs, subscribedRegistry, unsubscribeAll, subscribeSubsWithPromise, loadedPromise };
 };
-

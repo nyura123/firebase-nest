@@ -12,10 +12,10 @@ from multiple firebase refs as your app state changes, and also as the master da
 # Basic example
 
 ```js
-import createSubscriber from 'firebase-nest';
+import createSubscriber, { asNodesAndEdges, asDotGraph } from 'firebase-nest';
 import Firebase from 'firebase';
 const fb = new Firebase('https://docs-examples.firebaseio.com');
-const subscriber = createSubscriber({
+const { subscribeSubsWithPromise, subscribedRegistry } = createSubscriber({
     resolveFirebaseQuery: function(sub) {
         return fb.child(sub.path);
     },
@@ -23,7 +23,7 @@ const subscriber = createSubscriber({
         console.log('onData: type='+type+', subKey='+sub.subKey+', fbKey='+snapshot.key());
     }
 });
-const { unsubscribe, promise } = subscriber.subscribeSubsWithPromise([{
+const { unsubscribe, promise } = subscribeSubsWithPromise([{
     subKey: 'chats',
     asList: true,
     path: 'samplechat/messages',
@@ -37,6 +37,12 @@ promise.then(() => {
     console.log('initial data loaded');
 });
 ```
+
+If we have 2 messages, one with `uid=user1`, the other with `uid=user2`, the parent messages subscription will subscribe to user1 and user2.
+As data changes, childSubs are updated automatically.
+
+![subscription graph](https://cloud.githubusercontent.com/assets/7076175/26256880/15d09832-3c84-11e7-976b-90bc0c5ae466.png)
+
 
 # Features
 
@@ -54,6 +60,14 @@ promise.then(() => {
 
    A sub corresponds to a firebase ref/query, and can have a `childSubs` that specifies how to subscribe to data
 for each child.
+
+1. Visualize subscription graphs
+
+   You can use `asNodesAndEdges(subscribedRegistry)` - produces `{nodes, edges}` suitable for [react-graph-viz](https://github.com/crubier/react-graph-vis)
+   
+   Or `console.log(asDotGraph(subscribedRegistry))` - produces `digraph` dot output that can be saved to a file and fed to [graphviz](http://www.graphviz.org/) utils, like
+  
+   `dot -Tpng yourFile.dot -o graph.png`
 
 1. RefCounted firebase refs
 
