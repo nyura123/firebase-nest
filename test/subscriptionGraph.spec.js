@@ -11,6 +11,7 @@ test('generates subscription dot graphs', (assert) => {
       "empty graph"
     );
   }
+
   {
     const subscribedRegistry = {'sub1': {refCount: 1}};
     function makeNodeProps(subKey, subInfo) {
@@ -22,6 +23,7 @@ test('generates subscription dot graphs', (assert) => {
       "single-node graph"
     );
   }
+
   {
     const subscribedRegistry = {'sub1': {refCount: 1}};
     function makeNodeProps(subKey, subInfo) {
@@ -33,6 +35,7 @@ test('generates subscription dot graphs', (assert) => {
       "graph with custom makeNodeProps & string colors"
     );
   }
+
   {
     const subscribedRegistry = {'sub1': {refCount: 1}};
     function makeNodeProps(subKey, subInfo) {
@@ -44,6 +47,7 @@ test('generates subscription dot graphs', (assert) => {
       "graph with custom makeNodeProps & OBJECT colors"
     );
   }
+
   {
     const subscribedRegistry = {'sub1': {refCount: 1}};
     assert.equal(
@@ -52,6 +56,7 @@ test('generates subscription dot graphs', (assert) => {
       "graph default makeNodeProps"
     );
   }
+  
   {
     const subscribedRegistry = {
       'sub1': {parentSubKeys: {'_root': 1}, refCount: 1, childUnsubs: {'sub2': ()=>{}, 'sub3': ()=>{}}},
@@ -99,20 +104,29 @@ test('generates subscription dot graphs', (assert) => {
   }
 
   {
+    //handles fieldSubs
+    const subscribedRegistry = {
+      'sub1': {fieldUnsubs: {'field1': ()=>{}, 'field2': ()=>{}}}
+    }
+    assert.equal(
+      asDotGraph(subscribedRegistry),
+      `digraph "SubscriptionGraph" { sub1 [label=" \n sub1 \n # subsribers: 0\n # field subs: 2" style=filled fillcolor="#D2E5FF" color="grey"] ;\n ;\n }`,
+      "displays field subs count"
+    );
+  }
+
+  {
     const subscribedRegistry = {
       'messages': {refCount: 1, childUnsubs: {'user1': ()=>{}, 'user2': ()=>{}}},
       'user1': {parentSubKeys: {'messages': 1}},
       'user2': {parentSubKeys: {'messages': 1}}
     }
     function makeNodeProps(subKey, subInfo) {
-      if (subKey == 'messages') {
-        return {label: 'messages: [message1: {uid: user1, body: \'hi\'}, message2: {uid: user2, body: \'hey\'}]', color: '#D2E5FF'};
-      }
-      return {label: subKey, color: "#D2E5FF"}
+      return {label: subKey}
     }
     assert.equal(
       asDotGraph(subscribedRegistry, makeNodeProps),
-      `digraph "SubscriptionGraph" { messages [label="messages"] ;\nuser1 [label="user1"] ;\nuser2 [label="user2"];\nmessages -> user1 ;\nmessages -> user2 ;\n }`,
+      `digraph "SubscriptionGraph" { messages [label="messages"] ;\nuser1 [label="user1"] ;\nuser2 [label="user2"] ;\nmessages -> user1 ;\nmessages -> user2 ;\n }`,
       "graph with messages and users"
     );
     console.log(asDotGraph(subscribedRegistry, makeNodeProps))
