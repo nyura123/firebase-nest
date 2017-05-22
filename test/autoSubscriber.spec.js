@@ -147,6 +147,123 @@ test('autoSubscriber component updates subscriptions on getSubs changes', (asser
     assert.end();
 });
 
+test('autoSubscriber handles subscribeSubs that returns a promise and keeps track of fetching state', (assert) => {
+    var getSubsCalled = 0;
+    var subscribeCalled = 0;
+    var unsubscribeCalled = 0;
+    let setStateCalledWithFetchingTrue = false;
+    const Subscriber = autoSubscriber(class {
+        static getSubs(props, state) {
+            getSubsCalled++;
+            return {subKey: "subKey"+(getSubsCalled), asValue: true};
+        }
+        static subscribeSubs(subs, props, state) {
+            subscribeCalled++;
+            return {
+                unsubscribe: ()=>{
+                    unsubscribeCalled++;
+                },
+                promise: new Promise((resolve, reject) => { resolve(); })
+            };
+        }
+        componentDidMount() {
+        }
+        componentDidUpdate() {
+        }
+        componentWillUnmount() {
+        }
+        setState(state, done) {
+            if (state._autoSubscriberFetching) {
+                setStateCalledWithFetchingTrue = true;
+            } else if (state._autoSubscriberFetching === false) {
+                assert.end();
+            }
+            done && done();
+        }
+    });
+
+    const subscriber = new Subscriber();
+    subscriber.componentDidMount();
+    assert.equal(getSubsCalled, 1, "getSubs called on componentDidMount");
+    assert.equal(setStateCalledWithFetchingTrue, true, "setState called with autoSubscriberFetching=true");
+});
+
+test('autoSubscriber keeps track of fetching error', (assert) => {
+    var getSubsCalled = 0;
+    var subscribeCalled = 0;
+    var unsubscribeCalled = 0;
+    const Subscriber = autoSubscriber(class {
+        static getSubs(props, state) {
+            getSubsCalled++;
+            return {subKey: "subKey"+(getSubsCalled), asValue: true};
+        }
+        static subscribeSubs(subs, props, state) {
+            subscribeCalled++;
+            return {
+                unsubscribe: ()=>{
+                    unsubscribeCalled++;
+                },
+                promise: new Promise((resolve, reject) => { reject('fetch error'); })
+            };
+        }
+        componentDidMount() {
+        }
+        componentDidUpdate() {
+        }
+        componentWillUnmount() {
+        }
+        setState(state, done) {
+            if (state._autoSubscriberError === 'fetch error') {
+                assert.end();
+            }
+            done && done();
+        }
+    });
+
+    const subscriber = new Subscriber();
+    subscriber.componentDidMount();
+    assert.equal(getSubsCalled, 1, "getSubs called on componentDidMount");
+});
+
+test('autoSubscriber doesn\'t trash super\'s state', (assert) => {
+    var getSubsCalled = 0;
+    var subscribeCalled = 0;
+    var unsubscribeCalled = 0;
+    const Subscriber = autoSubscriber(class {
+        static getSubs(props, state) {
+            getSubsCalled++;
+            return {subKey: "subKey"+(getSubsCalled), asValue: true};
+        }
+        static subscribeSubs(subs, props, state) {
+            subscribeCalled++;
+            return {
+                unsubscribe: ()=>{
+                    unsubscribeCalled++;
+                },
+                promise: new Promise((resolve, reject) => { resolve(); })
+            };
+        }
+        constructor(props) {
+            this.state = {
+                userState: 1
+            }
+        }
+        componentDidMount() {
+        }
+        componentDidUpdate() {
+        }
+        componentWillUnmount() {
+        }
+        setState(state, done) {
+        }
+    });
+
+    const subscriber = new Subscriber();
+    subscriber.componentDidMount();
+    assert.equal(getSubsCalled, 1, "getSubs called on componentDidMount");
+    assert.equal(subscriber.state.userState, 1, "user state is kept");
+    assert.end();
+});
 
 test('autoSubscriber component works with missing methods', (assert) => {
     var didMountCalled = false;

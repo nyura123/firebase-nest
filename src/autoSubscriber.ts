@@ -23,6 +23,7 @@ interface SubCallbacks {
 }
 
 class AutoSubscriber {
+    _inst: any;
     _getSubs: any;
     _subscribeSubs: any;
     _subs: any;
@@ -30,6 +31,7 @@ class AutoSubscriber {
 
     constructor(Component, inst, subCallbacks?:SubCallbacks) {
         //Support static and instance methods
+        this._inst = inst;
         this._getSubs = subCallbacks && subCallbacks.getSubs ? subCallbacks.getSubs : (Component.getSubs || (inst.getSubs ? inst.getSubs.bind(inst) : undefined));
         this._subscribeSubs = subCallbacks && subCallbacks.subscribeSubs ? subCallbacks.subscribeSubs : (Component.subscribeSubs || (inst.subscribeSubs ? inst.subscribeSubs.bind(inst) : undefined));
         this.checkAndStubMethods(Component);
@@ -41,7 +43,17 @@ class AutoSubscriber {
             //Only unsubscribe/subscribe if subKeys have changed
             this._subs = subs;
             var unsub = this._unsub;
-            this._unsub = this._subscribeSubs(subs, props, state);
+            const subscribeResult = this._subscribeSubs(subs, props, state);
+            if (subscribeResult.unsubscribe) {
+                this._unsub = subscribeResult.unsubscribe;
+            }
+            else {
+                this._unsub = subscribeResult;
+            }
+
+            if (subscribeResult.promise) {
+                this._inst.__autoSubscriberUpdateFetchingErrorState(subscribeResult.promise);
+            }
 
             //Unsubscribe from old subscriptions
             if (unsub) unsub();
@@ -70,6 +82,7 @@ interface ComponentType {
     componentDidUpdate?(...args);
     componentWillUnmount?(...args);
     render();
+    setState(...args);
     state?: Object;
     props?: Object;
 }
@@ -83,8 +96,29 @@ export default function autoSubscriber(Component : {new(props:any): ComponentTyp
     return class extends Component {
         $autoSubscriber : AutoSubscriber;
 
+        __autoSubscriberUpdateFetchingErrorState(promise) {
+            this.setState && this.setState({
+                _autoSubscriberFetching: true,
+                _autoSubscriberError: null
+            }, () => {
+                promise.then(() => {
+                    this.setState({
+                        _autoSubscriberFetching: false
+                    });
+                }, (error) => {
+                    this.setState({
+                        _autoSubscriberFetching: false,
+                        _autoSubscriberError: error
+                    });
+                });
+            })
+        }
+
         constructor(props) {
             super(props);
+            if (!this.state) {
+                this.state = {}
+            }
             this.$autoSubscriber = new AutoSubscriber(Component, this, subCallbacks);
         }
 

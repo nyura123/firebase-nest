@@ -1,6 +1,6 @@
 {
   "name": "firebase-nest",
-  "version": "0.4.1",
+  "version": "0.5.1",
   "description": "utility to easily join multiple firebase paths and nested data into a single subscription",
   "keywords": [
     "firebase",
